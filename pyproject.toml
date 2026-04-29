@@ -1,0 +1,38 @@
+[project]
+name = "iswc26-cve"
+authors = [
+    { name = "Arnaldo Tomasino", email = "arnaldo.tomasino@poliba.it" },
+    { name = "Ivano Bilenchi", email = "ivano.bilenchi@poliba.it" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.12"
+dependencies = ["pycowl"]
+version = "0.1.0"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D",       # docstrings
+    "BLE001",  # blind-except
+    "D203",    # one-blank-line-before-class
+    "D212",    # multi-line-summary-first-line
+    "D418",    # overload-with-docstring
+    "N806",    # non-lowercase-variable-in-function
+    "PD",      # pandas
+    "PLC0414", # useless-import-alias
+    "PLR09",   # too-many-*
+    "PLR2004", # magic-value-comparison
+    "PYI021",  # docstring-in-stub
+    "T201",    # print
+]
+isort.combine-as-imports = true
