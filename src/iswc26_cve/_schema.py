@@ -1,22 +1,24 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast, overload
+from typing import TYPE_CHECKING, Any, cast
 
 import cowl
 
+from ._json import JSONObject, get_as
+from ._owl import (
+    escape_literal,
+    owl_class,
+    owl_data_property,
+    owl_datatype,
+    owl_individual,
+    owl_object_property,
+)
 from ._util import add_unique_axiom, to_camel_case
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-type JSONValue = dict[str, JSONValue] | list[JSONValue] | str | int | float | bool | None
 type ExpressionOrRange = cowl.ClassExpression | cowl.DataRange
-JSONObject = dict[str, "JSONValue"]
-
-LITERAL_TRANS_TABLE = str.maketrans({
-    "\\": "\\\\",
-    '"': '\\"',
-})
 
 
 def override_enum_as_class(
@@ -82,9 +84,6 @@ TYPE_OVERRIDES: dict[str, Callable[[cowl.Ontology, str, JSONObject], ExpressionO
 }
 
 
-NAME_OVERRIDES: dict[str, str] = {}
-
-
 IGNORE: set[str] = {
     "noneSeverityType",
     "lowSeverityType",
@@ -96,95 +95,6 @@ IGNORE: set[str] = {
 
 class UnresolvedRefError(Exception):
     pass
-
-
-@overload
-def get_as[T](
-    schema: JSONObject,
-    key: str,
-    expected_type: Callable[[Any], T],
-    default: None = None,
-) -> T | None: ...
-
-
-@overload
-def get_as[T](
-    schema: JSONObject,
-    key: str,
-    expected_type: Callable[[Any], T],
-    default: T,
-) -> T: ...
-
-
-def get_as[T](
-    schema: JSONObject,
-    key: str,
-    expected_type: Callable[[Any], T],
-    default: T | None = None,
-) -> T | None:
-    return default if (value := schema.get(key)) is None else expected_type(value)
-
-
-def escape_literal(literal: str) -> str:
-    return literal.translate(LITERAL_TRANS_TABLE)
-
-
-def to_owl_name(name: str, owl_type: type) -> str:
-    if override_name := NAME_OVERRIDES.get(name):
-        return override_name
-    if owl_type in (cowl.Class, cowl.Datatype):
-        name = name.removesuffix("Type")
-    if owl_type != cowl.Datatype:
-        name = to_camel_case(name)
-    if owl_type in (cowl.ObjectProperty, cowl.DataProperty):
-        name = "has" + name
-    return name
-
-
-def owl_class(onto: cowl.Ontology, name: str) -> cowl.Class:
-    return onto.Class(to_owl_name(name, cowl.Class))
-
-
-def owl_datatype(onto: cowl.Ontology, name: str) -> cowl.Datatype:
-    return onto.Datatype(to_owl_name(name, cowl.Datatype))
-
-
-def owl_object_property(onto: cowl.Ontology, name: str) -> cowl.ObjectProperty:
-    return onto.ObjectProperty(to_owl_name(name, cowl.ObjectProperty))
-
-
-def owl_data_property(onto: cowl.Ontology, name: str) -> cowl.DataProperty:
-    return onto.DataProperty(to_owl_name(name, cowl.DataProperty))
-
-
-def owl_individual(onto: cowl.Ontology, name: str) -> cowl.NamedIndividual:
-    return onto.NamedIndividual(to_owl_name(name, cowl.NamedIndividual))
-
-
-def schema_to_ontology(schema: dict[str, Any]) -> cowl.Ontology:
-    onto = cowl.Ontology()
-    onto.set_iri("http://swot.sisinflab.poliba.it/cvelist", update_prefix=True)
-
-    schemas: list[JSONObject] = [
-        schema,
-        schema["definitions"]["metrics"]["items"]["properties"]["cvssV4_0"],
-        schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_1"],
-        schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_0"],
-        schema["definitions"]["metrics"]["items"]["properties"]["cvssV2_0"],
-    ]
-
-    should_continue = True
-
-    while should_continue:
-        should_continue = False
-        for s in schemas:
-            for name, def_schema in get_as(s, "definitions", dict[str, JSONObject], {}).items():
-                try:
-                    process_definition(onto, name, def_schema)
-                except UnresolvedRefError:
-                    should_continue = True
-
-    return onto
 
 
 def resolve_ref(onto: cowl.Ontology, ref: str) -> cowl.Class | cowl.Datatype:
@@ -347,3 +257,29 @@ def process_definition(onto: cowl.Ontology, name: str, schema: JSONObject) -> No
 
     for operand in obj.operands():
         add_unique_axiom(onto, owl_class(onto, name).is_a(operand))
+
+
+def schema_to_ontology(schema: dict[str, Any]) -> cowl.Ontology:
+    onto = cowl.Ontology()
+    onto.set_iri("http://swot.sisinflab.poliba.it/cvelist", update_prefix=True)
+
+    schemas: list[JSONObject] = [
+        schema,
+        schema["definitions"]["metrics"]["items"]["properties"]["cvssV4_0"],
+        schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_1"],
+        schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_0"],
+        schema["definitions"]["metrics"]["items"]["properties"]["cvssV2_0"],
+    ]
+
+    should_continue = True
+
+    while should_continue:
+        should_continue = False
+        for s in schemas:
+            for name, def_schema in get_as(s, "definitions", dict[str, JSONObject], {}).items():
+                try:
+                    process_definition(onto, name, def_schema)
+                except UnresolvedRefError:
+                    should_continue = True
+
+    return onto

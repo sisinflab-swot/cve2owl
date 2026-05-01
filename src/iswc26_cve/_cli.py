@@ -3,7 +3,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ._mapper import schema_to_ontology
+from ._cve import add_vulnerability
+from ._schema import schema_to_ontology
 
 
 def app() -> None:
@@ -35,6 +36,11 @@ def app() -> None:
 
     with Path(args.schema_file).open(encoding="utf-8") as f:
         onto = schema_to_ontology(json.load(f))
+
+    input_dir = Path(args.input_dir)
+    for json_file in input_dir.rglob("*.json"):
+        with json_file.open(encoding="utf-8") as f:
+            add_vulnerability(onto, json_file.stem, json.load(f))
 
     timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
     output_path = output_dir / f"iswc26_cve_{timestamp}.owl"
