@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, cast, overload
 
 import cowl
 
@@ -37,50 +37,49 @@ def override_enum_as_class(
     for i in individuals:
         add_unique_axiom(onto, i.is_a(base_class))
 
-    add_unique_axiom(onto, cowl.all_different(*individuals))
     return cowl.one_of(*individuals)
 
 
 TYPE_OVERRIDES: dict[str, Callable[[cowl.Ontology, str, JSONObject], ExpressionOrRange]] = {
-    "attackVectorType": override_enum_as_class,
-    "modifiedAttackVectorType": override_enum_as_class,
-    "attackComplexityType": override_enum_as_class,
-    "modifiedAttackComplexityType": override_enum_as_class,
-    "attackRequirementsType": override_enum_as_class,
-    "modifiedAttackRequirementsType": override_enum_as_class,
-    "privilegesRequiredType": override_enum_as_class,
-    "modifiedPrivilegesRequiredType": override_enum_as_class,
-    "userInteractionType": override_enum_as_class,
-    "modifiedUserInteractionType": override_enum_as_class,
-    "vulnCiaType": override_enum_as_class,
-    "modifiedVulnCiaType": override_enum_as_class,
-    "subCiaType": override_enum_as_class,
-    "modifiedSubCiaType": override_enum_as_class,
-    "modifiedSubIaType": override_enum_as_class,
-    "exploitMaturityType": override_enum_as_class,
-    "ciaRequirementType": override_enum_as_class,
-    "safetyType": override_enum_as_class,
-    "automatableType": override_enum_as_class,
-    "recoveryType": override_enum_as_class,
-    "valueDensityType": override_enum_as_class,
-    "vulnerabilityResponseEffortType": override_enum_as_class,
-    "providerUrgencyType": override_enum_as_class,
-    "severityType": override_enum_as_class,
-    "scopeType": override_enum_as_class,
-    "modifiedScopeType": override_enum_as_class,
-    "ciaType": override_enum_as_class,
-    "modifiedCiaType": override_enum_as_class,
-    "exploitCodeMaturityType": override_enum_as_class,
-    "remediationLevelType": override_enum_as_class,
-    "confidenceType": override_enum_as_class,
-    "accessVectorType": override_enum_as_class,
     "accessComplexityType": override_enum_as_class,
+    "accessVectorType": override_enum_as_class,
+    "attackComplexityType": override_enum_as_class,
+    "attackRequirementsType": override_enum_as_class,
+    "attackVectorType": override_enum_as_class,
     "authenticationType": override_enum_as_class,
-    "exploitabilityType": override_enum_as_class,
-    "reportConfidenceType": override_enum_as_class,
+    "automatableType": override_enum_as_class,
+    "ciaRequirementType": override_enum_as_class,
+    "ciaType": override_enum_as_class,
     "collateralDamagePotentialType": override_enum_as_class,
-    "targetDistributionType": override_enum_as_class,
+    "confidenceType": override_enum_as_class,
+    "exploitabilityType": override_enum_as_class,
+    "exploitCodeMaturityType": override_enum_as_class,
+    "exploitMaturityType": override_enum_as_class,
+    "modifiedAttackComplexityType": override_enum_as_class,
+    "modifiedAttackRequirementsType": override_enum_as_class,
+    "modifiedAttackVectorType": override_enum_as_class,
+    "modifiedCiaType": override_enum_as_class,
+    "modifiedPrivilegesRequiredType": override_enum_as_class,
+    "modifiedScopeType": override_enum_as_class,
+    "modifiedSubCiaType": override_enum_as_class,
     "modifiedSubCType": override_enum_as_class,
+    "modifiedSubIaType": override_enum_as_class,
+    "modifiedUserInteractionType": override_enum_as_class,
+    "modifiedVulnCiaType": override_enum_as_class,
+    "privilegesRequiredType": override_enum_as_class,
+    "providerUrgencyType": override_enum_as_class,
+    "recoveryType": override_enum_as_class,
+    "remediationLevelType": override_enum_as_class,
+    "reportConfidenceType": override_enum_as_class,
+    "safetyType": override_enum_as_class,
+    "scopeType": override_enum_as_class,
+    "severityType": override_enum_as_class,
+    "subCiaType": override_enum_as_class,
+    "targetDistributionType": override_enum_as_class,
+    "userInteractionType": override_enum_as_class,
+    "valueDensityType": override_enum_as_class,
+    "vulnCiaType": override_enum_as_class,
+    "vulnerabilityResponseEffortType": override_enum_as_class,
 }
 
 
@@ -113,10 +112,8 @@ def resolve_ref(onto: cowl.Ontology, ref: str) -> cowl.Class | cowl.Datatype:
     raise UnresolvedRefError(msg)
 
 
-def owl_object(onto: cowl.Ontology, schema: JSONObject) -> ExpressionOrRange:
-    if ref := get_as(schema, "$ref", str):
-        return resolve_ref(onto, ref)
-    match get_as(schema, "type", str, "object"):
+def type_expression(onto: cowl.Ontology, schema: JSONObject) -> ExpressionOrRange:
+    match get_as(schema, "type", str):
         case "boolean":
             return cowl.xsd.boolean
         case "integer":
@@ -127,11 +124,31 @@ def owl_object(onto: cowl.Ontology, schema: JSONObject) -> ExpressionOrRange:
             return string_restriction(schema)
         case "array":
             return array_restriction(onto, schema)
-        case "object":
-            return object_restriction(onto, schema)
         case _:
-            msg = f"Unsupported type: {schema.get('type')}, schema: {schema}"
-            raise ValueError(msg)
+            return object_restriction(onto, schema)
+
+
+def bool_expression(onto: cowl.Ontology, schema: JSONObject) -> ExpressionOrRange:
+    if all_of := get_as(schema, "allOf", list[JSONObject]):
+        return intersection(*(owl_object(onto, item) for item in all_of))
+    if any_of := get_as(schema, "anyOf", list[JSONObject]):
+        return union(*(owl_object(onto, item) for item in any_of))
+    if one_of := get_as(schema, "oneOf", list[JSONObject]):
+        return union(*(owl_object(onto, item) for item in one_of))
+    return cowl.owl.thing
+
+
+def owl_object(onto: cowl.Ontology, schema: JSONObject) -> ExpressionOrRange:
+    if ref := get_as(schema, "$ref", str):
+        return resolve_ref(onto, ref)
+
+    if (const := get_as(schema, "const", str)) is not None:
+        return cowl.one_of(const)
+
+    # TODO: handle mixed boolean and type expressions.
+    if (type_expr := type_expression(onto, schema)) != cowl.owl.thing:
+        return type_expr
+    return bool_expression(onto, schema)
 
 
 def integer_restriction(schema: JSONObject) -> cowl.DataRange:
@@ -174,17 +191,12 @@ def array_restriction(
     onto: cowl.Ontology,
     schema: JSONObject,
 ) -> ExpressionOrRange:
-    if not (items := get_as(schema, "items", JSONObject)):
-        return cowl.owl.thing
-
-    if len(items) == 1 and (one_of := get_as(items, "oneOf", list[JSONObject])):
-        objs = [owl_object(onto, item) for item in one_of]
-        return cowl.union_of(*cast("list[cowl.ClassExpression]", objs))  # Suppress warning.
-
-    return owl_object(onto, items)
+    if items := get_as(schema, "items", JSONObject):
+        return owl_object(onto, items)
+    return cowl.owl.thing
 
 
-def property_restriction(
+def property_value_restriction(
     onto: cowl.Ontology,
     name: str,
     schema: JSONObject,
@@ -193,52 +205,65 @@ def property_restriction(
     max_: int | None = None,
 ) -> cowl.ClassExpression:
     filler = owl_object(onto, schema)
+    operands: list[cowl.ClassExpression] = []
 
     if cowl.is_class_expression(filler):
         prop = owl_object_property(onto, name)
-        restr = prop.only(filler)
+        if filler != cowl.owl.thing:
+            operands.append(prop.only(filler))
     else:
         prop = owl_data_property(onto, name)
-        restr = prop.only(filler)
+        operands.append(prop.only(filler))
 
     if min_ == max_:
-        return restr & prop.exactly(min_)
+        operands.append(prop.exactly(min_))
+    else:
+        if min_ > 0:
+            operands.append(prop.min(min_))
+        if max_ is not None:
+            operands.append(prop.max(max_))
 
-    if min_ > 0:
-        restr &= prop.min(min_)
-    if max_ is not None:
-        restr &= prop.max(max_)
-
-    return restr
+    return intersection(*operands)
 
 
-def intersection(*exprs: cowl.ClassExpression) -> cowl.ClassExpression:
+def object_restriction(
+    onto: cowl.Ontology,
+    schema: JSONObject,
+) -> ExpressionOrRange:
+    if props := get_as(schema, "properties", dict[str, JSONObject]):
+        return intersection(
+            *(property_value_restriction(onto, pname, pschema) for pname, pschema in props.items()),
+        )
+    return cowl.owl.thing
+
+
+@overload
+def intersection(*exprs: cowl.ClassExpression) -> cowl.ClassExpression: ...
+
+
+@overload
+def intersection(*exprs: cowl.DataRange) -> cowl.DataRange: ...
+
+
+@overload
+def intersection(*exprs: ExpressionOrRange) -> ExpressionOrRange: ...
+
+
+def intersection(*exprs: ExpressionOrRange) -> ExpressionOrRange:
+    filtered = [e for e in exprs if e != cowl.owl.thing]
+    if not filtered:
+        return cowl.owl.thing
+    if len(filtered) == 1:
+        return filtered[0]
+    return cowl.intersection_of(*cast("list[cowl.ClassExpression]", filtered))
+
+
+def union(*exprs: ExpressionOrRange) -> ExpressionOrRange:
     if not exprs:
         return cowl.owl.thing
     if len(exprs) == 1:
         return exprs[0]
-    args: list[cowl.ClassExpression] = []
-    for expr in exprs:
-        if isinstance(expr, cowl.ObjectIntersectionOf):
-            args.extend(expr.operands())
-        else:
-            args.append(expr)
-    return cowl.ObjectIntersectionOf(*args)
-
-
-def object_restriction(onto: cowl.Ontology, schema: JSONObject) -> ExpressionOrRange:
-    if (const := get_as(schema, "const", str)) is not None:
-        return cowl.one_of(const)
-
-    required_props = get_as(schema, "required", list[str], default=[])
-    if properties := get_as(schema, "properties", dict[str, JSONObject]):
-        restrs = [
-            property_restriction(onto, pname, pschema, min_=1 if pname in required_props else 0)
-            for pname, pschema in properties.items()
-        ]
-        return intersection(*restrs)
-
-    return cowl.owl.thing
+    return cowl.union_of(*cast("list[cowl.ClassExpression]", exprs))
 
 
 def process_definition(onto: cowl.Ontology, name: str, schema: JSONObject) -> None:
@@ -261,14 +286,38 @@ def process_definition(onto: cowl.Ontology, name: str, schema: JSONObject) -> No
 
 def schema_to_ontology(schema: dict[str, Any]) -> cowl.Ontology:
     onto = cowl.Ontology()
-    onto.set_iri("http://swot.sisinflab.poliba.it/cvelist", update_prefix=True)
+    onto.set_iri("https://swot.sisinflab.poliba.it/cve", update_prefix=True)
 
-    schemas: list[JSONObject] = [
-        schema,
-        schema["definitions"]["metrics"]["items"]["properties"]["cvssV4_0"],
-        schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_1"],
-        schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_0"],
-        schema["definitions"]["metrics"]["items"]["properties"]["cvssV2_0"],
+    cvssv40 = schema["definitions"]["metrics"]["items"]["properties"]["cvssV4_0"]
+    cvssv31 = schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_1"]
+    cvssv30 = schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_0"]
+    cvssv20 = schema["definitions"]["metrics"]["items"]["properties"]["cvssV2_0"]
+
+    schema["definitions"]["cvssV4_0"] = cvssv40
+    schema["definitions"]["cvssV3_1"] = cvssv31
+    schema["definitions"]["cvssV3_0"] = cvssv30
+    schema["definitions"]["cvssV2_0"] = cvssv20
+
+    schema["definitions"]["metrics"]["items"]["properties"]["cvssV4_0"] = {
+        "$ref": "#/definitions/cvssV4_0",
+    }
+    schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_1"] = {
+        "$ref": "#/definitions/cvssV3_1",
+    }
+    schema["definitions"]["metrics"]["items"]["properties"]["cvssV3_0"] = {
+        "$ref": "#/definitions/cvssV3_0",
+    }
+    schema["definitions"]["metrics"]["items"]["properties"]["cvssV2_0"] = {
+        "$ref": "#/definitions/cvssV2_0",
+    }
+
+    schemas: list[dict[str, JSONObject]] = [
+        {"CveRecord": schema},
+        schema["definitions"],
+        schema["definitions"]["cvssV4_0"]["definitions"],
+        schema["definitions"]["cvssV3_1"]["definitions"],
+        schema["definitions"]["cvssV3_0"]["definitions"],
+        schema["definitions"]["cvssV2_0"]["definitions"],
     ]
 
     should_continue = True
@@ -276,7 +325,7 @@ def schema_to_ontology(schema: dict[str, Any]) -> cowl.Ontology:
     while should_continue:
         should_continue = False
         for s in schemas:
-            for name, def_schema in get_as(s, "definitions", dict[str, JSONObject], {}).items():
+            for name, def_schema in s.items():
                 try:
                     process_definition(onto, name, def_schema)
                 except UnresolvedRefError:
