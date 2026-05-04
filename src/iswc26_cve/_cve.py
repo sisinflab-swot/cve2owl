@@ -1,5 +1,7 @@
+import json
 from collections.abc import Iterator
-from typing import Any, cast
+from pathlib import Path
+from typing import cast
 
 import cowl
 
@@ -9,7 +11,7 @@ from ._owl import escape_literal, owl_data_property, owl_name, owl_object_proper
 type IndividualOrLiteral = cowl.Individual | cowl.Literal
 
 
-INDIVIDUAL_OVERRIDES: dict[str, str] = {
+_INDIVIDUAL_OVERRIDES: dict[str, str] = {
     "accessVector": "accessVectorType",
     "accessComplexity": "accessComplexityType",
     "attackComplexity": "attackComplexityType",
@@ -65,69 +67,63 @@ INDIVIDUAL_OVERRIDES: dict[str, str] = {
 }
 
 
-def property_name_to_owl(prop: str, base: str) -> str:
-    return f"{base}_{owl_name(prop, cowl.Individual)}"
+class CVEWriter:
+    def __init__(self, factory: cowl.PrimitiveFactory, writer: cowl.StreamWriter) -> None:
+        self.factory = factory
+        self.writer = writer
+        self.record_class = factory.Class("CveRecord")
+        self.count = 0
+        self.axiom_count = 0
 
+    def process_record(self, record: Path) -> None:
+        with record.open(encoding="utf-8") as f:
+            name = record.stem
+            ind = self._process_object(json.load(f), name)
+            self._write(ind.is_a(self.record_class))
+            self.count += 1
 
-def value_to_individual_override(
-    onto: cowl.Ontology,
-    class_: str,
-    value: str,
-) -> cowl.NamedIndividual:
-    return onto.NamedIndividual(owl_name(class_, cowl.Class) + owl_name(value, cowl.Individual))
+    def _write(self, axiom: cowl.Axiom) -> None:
+        self.writer.write(axiom)
+        self.axiom_count += 1
 
+    def _process_object(self, obj: JSONObject, name: str) -> cowl.Individual:
+        ind = self.factory.NamedIndividual(name)
+        for key, value in obj.items():
+            if (class_ := _INDIVIDUAL_OVERRIDES.get(key)) and isinstance(value, str):
+                individual_value = self._value_to_individual_override(class_, value)
+                self._write_property_assertion(ind, key, individual_value)
+            else:
+                for v in self._process_value(value, f"{name}_{owl_name(key, cowl.Individual)}"):
+                    self._write_property_assertion(ind, key, v)
+        return ind
 
-def process_object(
-    onto: cowl.Ontology,
-    obj: JSONObject,
-    name: str,
-) -> cowl.Individual:
-    ind = onto.Individual(name)
-    for key, value in obj.items():
-        if (class_ := INDIVIDUAL_OVERRIDES.get(key)) and isinstance(value, str):
-            individual_value = value_to_individual_override(onto, class_, value)
-            add_property_assertion(onto, ind, key, individual_value)
+    def _process_value(self, value: JSONValue, name: str) -> Iterator[IndividualOrLiteral]:
+        if isinstance(value, str):
+            yield cowl.Literal(escape_literal(value))
+        elif isinstance(value, (int, bool)):
+            yield cowl.Literal(value)
+        elif isinstance(value, float):
+            yield cowl.Literal(value, datatype=cowl.xsd.decimal)
+        elif isinstance(value, list):
+            if len(value) == 1:
+                yield from self._process_value(value[0], name)
+            else:
+                for i, v in enumerate(value):
+                    yield from self._process_value(v, f"{name}_{i}")
+        elif isinstance(value, dict):
+            yield self._process_object(cast("JSONObject", value), name)
+
+    def _value_to_individual_override(self, class_: str, value: str) -> cowl.NamedIndividual:
+        name = owl_name(class_, cowl.Class) + owl_name(value, cowl.Individual)
+        return self.factory.NamedIndividual(name)
+
+    def _write_property_assertion(
+        self,
+        subject: cowl.Individual,
+        prop: str,
+        obj: IndividualOrLiteral,
+    ) -> None:
+        if cowl.is_individual(obj):
+            self._write(owl_object_property(self.factory, prop)(subject, obj))
         else:
-            for v in process_value(onto, value, property_name_to_owl(key, name)):
-                add_property_assertion(onto, ind, key, v)
-    return ind
-
-
-def process_value(
-    onto: cowl.Ontology,
-    value: JSONValue,
-    name: str,
-) -> Iterator[IndividualOrLiteral]:
-    if isinstance(value, str):
-        if value in INDIVIDUAL_OVERRIDES:
-            yield onto.Individual(owl_name(value, cowl.Individual))
-        yield cowl.Literal(escape_literal(value))
-    elif isinstance(value, (int, bool)):
-        yield cowl.Literal(value)
-    elif isinstance(value, float):
-        yield cowl.Literal(value, datatype=cowl.xsd.decimal)
-    elif isinstance(value, list):
-        if len(value) == 1:
-            yield from process_value(onto, value[0], name)
-        else:
-            for i, v in enumerate(value):
-                yield from process_value(onto, v, f"{name}_{i}")
-    elif isinstance(value, dict):
-        yield process_object(onto, cast("JSONObject", value), name)
-
-
-def add_property_assertion(
-    onto: cowl.Ontology,
-    subject: cowl.Individual,
-    prop: str,
-    obj: IndividualOrLiteral,
-) -> None:
-    if cowl.is_individual(obj):
-        onto.add(owl_object_property(onto, prop)(subject, obj))
-    else:
-        onto.add(owl_data_property(onto, prop)(subject, obj))
-
-
-def add_vulnerability(onto: cowl.Ontology, cve_id: str, data: dict[str, Any]) -> None:
-    ind = process_object(onto, data, cve_id)
-    onto.add(ind.is_a(onto.Class("CveRecord")))
+            self._write(owl_data_property(self.factory, prop)(subject, obj))

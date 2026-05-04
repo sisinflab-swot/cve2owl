@@ -28,21 +28,21 @@ def owl_name(name: str, owl_type: type) -> str:
     return name
 
 
-def owl_class(onto: cowl.Ontology, name: str) -> cowl.Class:
-    return onto.Class(owl_name(name, cowl.Class))
+def owl_class(factory: cowl.PrimitiveFactory, name: str) -> cowl.Class:
+    return factory.Class(owl_name(name, cowl.Class))
 
 
-def owl_datatype(onto: cowl.Ontology, name: str) -> cowl.Datatype:
-    return onto.Datatype(owl_name(name, cowl.Datatype))
+def owl_datatype(factory: cowl.PrimitiveFactory, name: str) -> cowl.Datatype:
+    return factory.Datatype(owl_name(name, cowl.Datatype))
 
 
-def owl_object_property(onto: cowl.Ontology, name: str) -> cowl.ObjectProperty:
-    return onto.ObjectProperty(owl_name(name, cowl.ObjectProperty))
+def owl_object_property(factory: cowl.PrimitiveFactory, name: str) -> cowl.ObjectProperty:
+    return factory.ObjectProperty(owl_name(name, cowl.ObjectProperty))
 
 
-def owl_data_property(onto: cowl.Ontology, name: str) -> cowl.DataProperty:
-    return onto.DataProperty(owl_name(name, cowl.DataProperty))
+def owl_data_property(factory: cowl.PrimitiveFactory, name: str) -> cowl.DataProperty:
+    return factory.DataProperty(owl_name(name, cowl.DataProperty))
 
 
-def owl_individual(onto: cowl.Ontology, name: str) -> cowl.NamedIndividual:
-    return onto.NamedIndividual(owl_name(name, cowl.NamedIndividual))
+def owl_individual(factory: cowl.PrimitiveFactory, name: str) -> cowl.NamedIndividual:
+    return factory.NamedIndividual(owl_name(name, cowl.NamedIndividual))
