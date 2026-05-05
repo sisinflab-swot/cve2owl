@@ -6,6 +6,7 @@ from typing import cast
 import cowl
 
 from ._json import JSONObject, JSONValue
+from ._log import logger as log
 from ._owl import escape_literal, owl_data_property, owl_name, owl_object_property
 
 type IndividualOrLiteral = cowl.Individual | cowl.Literal
@@ -72,19 +73,18 @@ class CVEWriter:
         self.factory = factory
         self.writer = writer
         self.record_class = factory.Class("CveRecord")
-        self.count = 0
-        self.axiom_count = 0
 
     def process_record(self, record: Path) -> None:
-        with record.open(encoding="utf-8") as f:
-            name = record.stem
-            ind = self._process_object(json.load(f), name)
+        with log.begin_record(record), record.open(encoding="utf-8") as f:
+            data = json.load(f)
+            log.mark_json_parsed()
+            ind = self._process_object(data, record.stem)
             self._write(ind.is_a(self.record_class))
-            self.count += 1
 
     def _write(self, axiom: cowl.Axiom) -> None:
+        cur_written = self.writer.written_bytes
         self.writer.write(axiom)
-        self.axiom_count += 1
+        log.mark_axiom_written(self.writer.written_bytes - cur_written)
 
     def _process_object(self, obj: JSONObject, name: str) -> cowl.Individual:
         ind = self.factory.NamedIndividual(name)

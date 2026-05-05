@@ -1,10 +1,12 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any, cast, overload
+import json
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any, cast, overload
 
 import cowl
 
 from ._json import JSONObject, get_as
+from ._log import logger as log
 from ._owl import (
     escape_literal,
     owl_class,
@@ -13,12 +15,14 @@ from ._owl import (
     owl_individual,
     owl_object_property,
 )
-from ._util import add_unique_axiom, to_camel_case
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from ._util import to_camel_case
 
 type ExpressionOrRange = cowl.ClassExpression | cowl.DataRange
+
+
+def add_unique_axiom(onto: cowl.Ontology, axiom: cowl.Axiom) -> None:
+    if axiom not in onto:
+        onto.add(axiom)
 
 
 def override_enum_as_class(
@@ -332,3 +336,25 @@ def schema_to_ontology(schema: dict[str, Any]) -> cowl.Ontology:
                     should_continue = True
 
     return onto
+
+
+def schema_path_to_ontology(schema_path: Path) -> cowl.Ontology:
+    log.begin_record(schema_path)
+
+    with schema_path.open(encoding="utf-8") as f:
+        json_schema = json.load(f)
+        log.mark_json_parsed()
+        return schema_to_ontology(json_schema)
+
+
+def write(writer: cowl.StreamWriter, construct: cowl.Axiom | cowl.Header) -> int:
+    cur_written = writer.written_bytes
+    writer.write(construct)
+    return writer.written_bytes - cur_written
+
+
+def write_ontology(onto: cowl.Ontology, stream: cowl.StreamWriter) -> None:
+    log.mark_written(write(stream, cowl.Header.from_ontology(onto)))
+    for axiom in onto.axioms():
+        log.mark_axiom_written(write(stream, axiom))
+    log.end_record()

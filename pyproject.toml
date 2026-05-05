@@ -1,15 +1,15 @@
 [project]
 name = "iswc26-cve"
 authors = [
-    { name = "Arnaldo Tomasino", email = "arnaldo.tomasino@poliba.it" },
     { name = "Ivano Bilenchi", email = "ivano.bilenchi@poliba.it" },
+    { name = "Arnaldo Tomasino", email = "arnaldo.tomasino@poliba.it" },
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.12"
-dependencies = ["pycowl"]
+dependencies = ["pycowl", "psutil"]
 version = "0.1.0"
 
 [build-system]
