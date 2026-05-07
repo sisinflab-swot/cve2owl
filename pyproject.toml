@@ -1,5 +1,5 @@
 [project]
-name = "iswc26-cve"
+name = "cve2owl"
 authors = [
     { name = "Ivano Bilenchi", email = "ivano.bilenchi@poliba.it" },
     { name = "Arnaldo Tomasino", email = "arnaldo.tomasino@poliba.it" },

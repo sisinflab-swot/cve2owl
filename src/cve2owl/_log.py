@@ -120,7 +120,7 @@ class Logger:
         self._log_info()
 
     def _setup_logger(self) -> logging.Logger:
-        log = logging.getLogger("iswc26_cve")
+        log = logging.getLogger("cve2owl")
         fmt = "[%(asctime)s] %(message)s"
         datefmt = "%Y-%m-%d %H:%M:%S"
         handler = logging.StreamHandler(sys.stdout)

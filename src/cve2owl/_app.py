@@ -41,7 +41,7 @@ def app() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    stem = f"iswc26_cve_{datetime.now(tz=UTC).strftime('%Y%m%d_%H%M%S')}"
+    stem = f"cve2owl_{datetime.now(tz=UTC).strftime('%Y%m%d_%H%M%S')}"
     log.open(output_dir / f"{stem}.csv")
 
     log.info("Loading schema...")
