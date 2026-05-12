@@ -12,11 +12,12 @@
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/sisinflab-swot/cve2owl && cd cve2owl
+   git clone https://github.com/sisinflab-swot/cve2owl
    ```
    **Note for peer reviewers:** if you're viewing the anonymized repository, you must download the sources by clicking on *ZIP* in the top-right corner of the web interface.
 2. Clone the CVE and CVE schema repositories:
    ```bash
+   cd cve2owl
    mkdir data
    git clone https://github.com/CVEProject/cvelistV5.git data/cvelistv5
    git clone https://github.com/CVEProject/cve-schema.git data/cve-schema
@@ -24,7 +25,7 @@
 3. Install the project and its dependencies:
    ```bash
    python -m venv .venv
-   source .venv/bin/activate
+   source .venv/bin/activate # Or .venv/Scripts/activate on Windows.
    pip install .
    ```
 4. Generate the knowledge graph:
