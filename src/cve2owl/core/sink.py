@@ -1,0 +1,39 @@
+from collections.abc import Iterable
+
+import cowl
+
+from .log import logger as log
+from .naming import Namespace, prefix_map
+
+
+# The only writer to the output stream, so that every written byte and axiom is reported.
+class AxiomSink:
+    def __init__(self, stream: cowl.StreamWriter) -> None:
+        self.stream = stream
+
+    def _write(self, construct: cowl.Axiom | cowl.Header) -> int:
+        cur_written = self.stream.written_bytes
+        self.stream.write(construct)
+        return self.stream.written_bytes - cur_written
+
+    def write(self, axiom: cowl.Axiom) -> None:
+        log.mark_axiom_written(self._write(axiom))
+
+    def write_header(self, iri: str, namespaces: Iterable[Namespace]) -> None:
+        # Explicit prefixes, instead of the ontology's own, so all namespaces are abbreviated.
+        header = cowl.Header(prefix_map=prefix_map(*namespaces), iri=iri)
+        log.mark_written(self._write(header))
+
+    def write_axioms(self, onto: cowl.Ontology) -> None:
+        for axiom in onto.axioms():
+            self.write(axiom)
+
+    def write_extra(self, axioms: Iterable[cowl.Axiom]) -> int:
+        # For axioms outside any record: they still count towards the totals.
+        count = 0
+        written = 0
+        for axiom in axioms:
+            written += self._write(axiom)
+            count += 1
+        log.mark_extra_axioms(count, written)
+        return count

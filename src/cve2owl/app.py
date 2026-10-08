@@ -4,18 +4,20 @@ from pathlib import Path
 
 import cowl
 
-from ._cpe_abox import CpeWriter
-from ._cpe_feed import record_path
-from ._cpe_schema import cpe_schema_path_to_ontology
-from ._cpe_uri import ANY, parse_cpe
-from ._cve_dates import date_in_range, record_date
-from ._cve_links import CveLinksWriter
-from ._cwe_abox import DIRECTORIES, CWEWriter
-from ._cwe_schema import cwe_schema_path_to_ontology
-from ._enrichment import write_enrichment
-from ._log import logger as log
-from ._schema import schema_path_to_ontology, write, write_ontology
-from ._util import walk
+from .core.jsonio import read_json_record, walk
+from .core.log import logger as log
+from .core.sink import AxiomSink
+from .cpe.abox import CpeWriter, component_declarations
+from .cpe.feed import record_path
+from .cpe.tbox import CPE, cpe_tbox
+from .cpe.uri import ANY, parse_cpe
+from .cve.abox import CveWriter
+from .cve.dates import date_in_range, record_date
+from .cve.links import CveLinker, link_declarations
+from .cve.tbox import cve_tbox
+from .cve.vocab import CVE
+from .cwe.abox import DIRECTORIES, CweWriter
+from .cwe.tbox import CWE, cwe_tbox
 
 DEFAULT_CPE_SCHEMA = "data/cpe-schema/cpe_api_json_2.0.schema"
 DEFAULT_CWE_SCHEMA = "data/cwe-schema/openapi.json"
@@ -44,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--cpe-dir",
-        help="Path to the exploded CPE dictionary records (see cve2owl._cpe_feed). "
+        help="Path to the exploded CPE dictionary records (see cve2owl.cpe.feed). "
         "If omitted, the dictionary is not ingested and CPE nodes are described "
         "from the CPE strings found in the CVE records only.",
     )
@@ -86,45 +88,38 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def write_tbox(onto: cowl.Ontology, stream: cowl.StreamWriter) -> None:
-    # Unlike write_ontology(), writes no header. Also closes the record opened by the schema loader.
-    for axiom in onto.axioms():
-        log.mark_axiom_written(write(stream, axiom))
-    log.end_record()
-
-
 def write_tboxes(
-    stream: cowl.StreamWriter,
+    sink: AxiomSink,
     cve_schema: Path,
     cpe_schema: Path,
     cwe_schema: Path,
-) -> tuple[cowl.Ontology, cowl.Ontology, cowl.Ontology]:
-    # Each loader opens a metrics record, which must be closed before loading the next schema.
+) -> None:
+    # The output is a single ontology with the CVE IRI, so the CVE record also writes the header.
     log.info("Loading CVE schema...")
-    cve_onto = schema_path_to_ontology(cve_schema)
-    write_ontology(cve_onto, stream)
+    with read_json_record(cve_schema) as schema:
+        cve_onto = cve_tbox(schema)
+        sink.write_header(CVE.iri, [CVE, CPE, CWE])
+        sink.write_axioms(cve_onto)
 
     log.info("Loading CPE schema...")
-    cpe_onto = cpe_schema_path_to_ontology(cpe_schema)
-    write_tbox(cpe_onto, stream)
+    with read_json_record(cpe_schema) as schema:
+        sink.write_axioms(cpe_tbox(schema))
 
     log.info("Loading CWE schema...")
-    cwe_onto = cwe_schema_path_to_ontology(cwe_schema)
-    write_tbox(cwe_onto, stream)
-
-    return cve_onto, cpe_onto, cwe_onto
+    with read_json_record(cwe_schema) as schema:
+        sink.write_axioms(cwe_tbox(schema))
 
 
-def process_cwe_catalog(cwe_dir: Path, writer: CWEWriter) -> None:
+def process_cwe_catalog(cwe_dir: Path, writer: CweWriter) -> None:
     log.info("Processing CWE catalogue...")
     for subdir, class_name in DIRECTORIES:
         for json_file in walk(cwe_dir / subdir, "CWE-*.json"):
-            writer.process_catalog_record(json_file, class_name)
+            writer.process_record(json_file, class_name)
 
 
 def process_cve_records(
     input_dirs: list[str],
-    writer: CveLinksWriter,
+    writer: CveWriter,
     from_date: str | None,
     to_date: str | None,
 ) -> None:
@@ -182,23 +177,29 @@ def app() -> None:
     writer = cowl.Writer.functional()
 
     with writer.stream(output_path) as stream:
-        cve_onto, cpe_onto, cwe_onto = write_tboxes(
-            stream,
+        sink = AxiomSink(stream)
+        write_tboxes(
+            sink,
             Path(args.schema),
             Path(args.cpe_schema),
             Path(args.cwe_schema),
         )
 
-        # Properties not described by any schema
-        write_enrichment(cve_onto, cpe_onto, stream)
+        # Properties not described by any schema. Not a record, as there is no input file.
+        count = sink.write_extra([
+            *link_declarations(),
+            *component_declarations(),
+        ])
+        log.info("  %d properties declared by the enrichment module", count)
 
-        cpe_writer = CpeWriter(cpe_onto, stream)
-        cwe_writer = CWEWriter(cwe_onto, stream)
+        cpe_writer = CpeWriter(sink)
+        cwe_writer = CweWriter(sink)
 
         if args.cwe_dir:
             process_cwe_catalog(Path(args.cwe_dir), cwe_writer)
 
-        cve_writer = CveLinksWriter(cve_onto, stream, cpe_writer, cwe_writer)
+        linker = CveLinker(sink, cpe_writer, cwe_writer)
+        cve_writer = CveWriter(sink, on_object=linker)
         process_cve_records(args.input_dirs, cve_writer, args.from_date, args.to_date)
 
         if args.cpe_dir:

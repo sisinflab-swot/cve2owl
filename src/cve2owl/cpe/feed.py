@@ -3,9 +3,10 @@ import json
 import tarfile
 from pathlib import Path
 
-from ._cpe_uri import CpeParseError, cpe_individual_name, field_to_name, parse_cpe
-from ._json import JSONValue
-from ._log import logger as log
+from cve2owl.core.jsonio import JSONValue
+from cve2owl.core.log import logger as log
+
+from .uri import CpeParseError, cpe_individual_name, field_to_name, parse_cpe
 
 DEFAULT_CPE_DIR = "data/cpe"
 

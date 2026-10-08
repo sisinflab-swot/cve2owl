@@ -51,7 +51,7 @@ Download the NVD CPE dictionary and split it into one file per product:
 ```bash
 mkdir -p data/cpe
 curl -fL -o data/cpe/nvdcpe-2.0.tar.gz https://nvd.nist.gov/feeds/json/cpe/2.0/nvdcpe-2.0.tar.gz
-python -m cve2owl._cpe_feed data/cpe/nvdcpe-2.0.tar.gz
+python -m cve2owl.cpe.feed data/cpe/nvdcpe-2.0.tar.gz
 ```
 
 Then pass the resulting directory via `--cpe-dir`:

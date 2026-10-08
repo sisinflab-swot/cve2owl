@@ -1,4 +1,4 @@
 if __name__ == "__main__":
-    from ._app import app
+    from .app import app
 
     app()

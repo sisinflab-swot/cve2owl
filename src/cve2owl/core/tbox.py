@@ -1,0 +1,289 @@
+from collections.abc import Callable, Mapping, Sequence, Set as AbstractSet
+from typing import Any, cast, overload
+
+import cowl
+
+from .jsonio import JSONObject, JSONValue, get_as
+from .naming import (
+    Namespace,
+    enum_individual,
+    owl_class,
+    owl_data_property,
+    owl_datatype,
+    owl_object_property,
+)
+
+type ExpressionOrRange = cowl.ClassExpression | cowl.DataRange
+
+# Translates a definition in place of the default translation.
+type Override = Callable[[SchemaTranslator, str, JSONObject], ExpressionOrRange]
+
+# Guards against $refs that cannot be resolved
+MAX_REF_RESOLUTION_PASSES = 10
+
+
+class UnresolvedRefError(Exception):
+    pass
+
+
+def new_ontology(ns: Namespace) -> cowl.Ontology:
+    onto = cowl.Ontology()
+    onto.set_iri(ns.iri)
+    onto.prefix_map[ns.prefix] = ns.namespace
+    return onto
+
+
+# Translates JSON Schema definitions into the axioms of a new ontology in the given namespace.
+class SchemaTranslator:
+    def __init__(
+        self,
+        ns: Namespace,
+        *,
+        overrides: Mapping[str, Override] | None = None,
+        ignore: AbstractSet[str] = frozenset(),
+    ) -> None:
+        self.ns = ns
+        self.onto = new_ontology(ns)
+        self.overrides = overrides or {}
+        self.ignore = ignore
+
+    def add(self, axiom: cowl.Axiom) -> None:
+        if axiom not in self.onto:
+            self.onto.add(axiom)
+
+    def translate(self, *definitions: Mapping[str, JSONObject]) -> cowl.Ontology:
+        for _ in range(MAX_REF_RESOLUTION_PASSES):
+            unresolved = False
+            for defs in definitions:
+                for name, schema in defs.items():
+                    try:
+                        self.translate_definition(name, schema)
+                    except UnresolvedRefError:
+                        unresolved = True
+            if not unresolved:
+                return self.onto
+        msg = f"the $ref resolution loop did not converge in {MAX_REF_RESOLUTION_PASSES} passes"
+        raise RuntimeError(msg)
+
+    def translate_definition(self, name: str, schema: JSONObject) -> None:
+        if name in self.ignore:
+            return
+
+        if override := self.overrides.get(name):
+            obj = override(self, name, schema)
+        else:
+            obj = self.owl_object(schema)
+
+        if cowl.is_data_range(obj):
+            self.add(owl_datatype(self.ns, name).is_defined_as(obj))
+            return
+
+        if not isinstance(obj, cowl.ObjectIntersectionOf):
+            self.add(owl_class(self.ns, name).is_a(obj))
+            return
+
+        for operand in obj.operands():
+            self.add(owl_class(self.ns, name).is_a(operand))
+
+    def resolve_ref(self, ref: str) -> cowl.Class | cowl.Datatype:
+        if (index := ref.rfind("/definitions/")) == -1:
+            msg = f"Unsupported $ref format: {ref}"
+            raise ValueError(msg)
+
+        name = ref[index + len("/definitions/") :]
+
+        if (cls := owl_class(self.ns, name)) in self.onto:
+            return cls
+        if (dt := owl_datatype(self.ns, name)) in self.onto:
+            return dt
+
+        msg = f"Unresolved $ref: {ref}"
+        raise UnresolvedRefError(msg)
+
+    def owl_object(self, schema: JSONObject) -> ExpressionOrRange:
+        if ref := get_as(schema, "$ref", str):
+            return self.resolve_ref(ref)
+
+        if (const := get_as(schema, "const", str)) is not None:
+            return cowl.one_of(const)
+
+        # TODO: handle mixed boolean and type expressions.
+        if (type_expr := self.type_expression(schema)) != cowl.owl.thing:
+            return type_expr
+        return self.bool_expression(schema)
+
+    def type_expression(self, schema: JSONObject) -> ExpressionOrRange:
+        match get_as(schema, "type", str):
+            case "boolean":
+                return cowl.xsd.boolean
+            case "integer":
+                return integer_restriction(schema)
+            case "number":
+                return number_restriction(schema)
+            case "string":
+                return string_restriction(schema)
+            case "array":
+                return self.array_restriction(schema)
+            case _:
+                return self.object_restriction(schema)
+
+    def bool_expression(self, schema: JSONObject) -> ExpressionOrRange:
+        if all_of := get_as(schema, "allOf", list[JSONObject]):
+            return intersection(*(self.owl_object(item) for item in all_of))
+        if any_of := get_as(schema, "anyOf", list[JSONObject]):
+            return union(*(self.owl_object(item) for item in any_of))
+        if one_of := get_as(schema, "oneOf", list[JSONObject]):
+            return union(*(self.owl_object(item) for item in one_of))
+        return cowl.owl.thing
+
+    def array_restriction(self, schema: JSONObject) -> ExpressionOrRange:
+        if items := get_as(schema, "items", JSONObject):
+            return self.owl_object(items)
+        return cowl.owl.thing
+
+    def object_restriction(self, schema: JSONObject) -> ExpressionOrRange:
+        if props := get_as(schema, "properties", dict[str, JSONObject]):
+            return intersection(
+                *(
+                    self.property_value_restriction(pname, pschema)
+                    for pname, pschema in props.items()
+                ),
+            )
+        return cowl.owl.thing
+
+    def property_value_restriction(
+        self,
+        name: str,
+        schema: JSONObject,
+        *,
+        min_: int = 0,
+        max_: int | None = None,
+    ) -> cowl.ClassExpression:
+        filler = self.owl_object(schema)
+        operands: list[cowl.ClassExpression] = []
+
+        if cowl.is_class_expression(filler):
+            prop = owl_object_property(self.ns, name)
+            if filler != cowl.owl.thing:
+                operands.append(prop.only(filler))
+        else:
+            prop = owl_data_property(self.ns, name)
+            operands.append(prop.only(filler))
+
+        if min_ == max_:
+            operands.append(prop.exactly(min_))
+        else:
+            if min_ > 0:
+                operands.append(prop.min(min_))
+            if max_ is not None:
+                operands.append(prop.max(max_))
+
+        return intersection(*operands)
+
+
+# Override that turns an enum type into a class enumerated by named individuals.
+def enum_as_class(
+    translator: SchemaTranslator,
+    base_class_name: str,
+    schema: JSONObject,
+) -> ExpressionOrRange:
+    if (enum := get_as(schema, "enum", list[str])) is None:
+        msg = f"Expected 'enum' in schema: {schema}"
+        raise ValueError(msg)
+
+    ns = translator.ns
+    base_class = owl_class(ns, base_class_name)
+    individuals = [enum_individual(ns, base_class_name, value) for value in enum]
+
+    for i in individuals:
+        translator.add(i.is_a(base_class))
+
+    return cowl.one_of(*individuals)
+
+
+def integer_restriction(schema: JSONObject) -> cowl.DataRange:
+    if enum := get_as(schema, "enum", list[int]):
+        return cowl.one_of(*enum)
+    if any(key in schema for key in ("minimum", "maximum")):
+        return cowl.xsd.integer.that_has(
+            value_ge=get_as(schema, "minimum", int),
+            value_le=get_as(schema, "maximum", int),
+        )
+    return cowl.xsd.integer
+
+
+def number_restriction(schema: JSONObject) -> cowl.DataRange:
+    if enum := get_as(schema, "enum", list[float]):
+        return cowl.one_of(*(cowl.xsd.decimal(v) for v in enum))
+    if any(key in schema for key in ("minimum", "maximum")):
+        return cowl.xsd.decimal.that_has(
+            value_ge=get_as(schema, "minimum", float),
+            value_le=get_as(schema, "maximum", float),
+        )
+    return cowl.xsd.decimal
+
+
+def string_restriction(schema: JSONObject) -> ExpressionOrRange:
+    if enum := get_as(schema, "enum", list[str]):
+        return cowl.one_of(*enum)
+    if const := get_as(schema, "const", str):
+        return cowl.one_of(const)
+    if any(key in schema for key in ("minLength", "maxLength", "pattern")):
+        return cowl.xsd.string.that_has(
+            min_length=get_as(schema, "minLength", int),
+            max_length=get_as(schema, "maxLength", int),
+            pattern=get_as(schema, "pattern", str),
+        )
+    return cowl.xsd.string
+
+
+@overload
+def intersection(*exprs: cowl.ClassExpression) -> cowl.ClassExpression: ...
+
+
+@overload
+def intersection(*exprs: cowl.DataRange) -> cowl.DataRange: ...
+
+
+@overload
+def intersection(*exprs: ExpressionOrRange) -> ExpressionOrRange: ...
+
+
+def intersection(*exprs: ExpressionOrRange) -> ExpressionOrRange:
+    filtered = [e for e in exprs if e != cowl.owl.thing]
+    if not filtered:
+        return cowl.owl.thing
+    if len(filtered) == 1:
+        return filtered[0]
+    return cowl.intersection_of(*cast("list[cowl.ClassExpression]", filtered))
+
+
+def union(*exprs: ExpressionOrRange) -> ExpressionOrRange:
+    if not exprs:
+        return cowl.owl.thing
+    if len(exprs) == 1:
+        return exprs[0]
+    return cowl.union_of(*cast("list[cowl.ClassExpression]", exprs))
+
+
+def hoist_definition(schema: dict[str, Any], path: Sequence[str], name: str) -> None:
+    # Moves the inline subschema at path into the definitions, so it becomes a named class.
+    *parents, key = path
+    parent = schema
+    for p in parents:
+        parent = parent[p]
+    schema["definitions"][name] = parent[key]
+    parent[key] = {"$ref": f"#/definitions/{name}"}
+
+
+def rewrite_openapi_refs(node: JSONValue) -> None:
+    # OpenAPI refs (#/components/schemas/X) to the JSON Schema form expected by resolve_ref().
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "$ref" and isinstance(value, str):
+                node[key] = value.replace("#/components/schemas/", "#/definitions/")
+            else:
+                rewrite_openapi_refs(value)
+    elif isinstance(node, list):
+        for item in node:
+            rewrite_openapi_refs(item)
