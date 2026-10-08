@@ -3,6 +3,7 @@ name = "cve2owl"
 authors = [
     { name = "Ivano Bilenchi", email = "ivano.bilenchi@poliba.it" },
     { name = "Arnaldo Tomasino", email = "arnaldo.tomasino@poliba.it" },
+    { name = "Vincenzo Gentile", email = "v.gentile2@studenti.poliba.it" },
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -22,11 +23,9 @@ line-length = 100
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "D",       # docstrings
     "BLE001",  # blind-except
-    "D203",    # one-blank-line-before-class
-    "D212",    # multi-line-summary-first-line
-    "D418",    # overload-with-docstring
+    "CPY001",  # missing-copyright-notice
+    "D",       # docstrings
     "N806",    # non-lowercase-variable-in-function
     "PD",      # pandas
     "PLC0414", # useless-import-alias
@@ -36,3 +35,9 @@ ignore = [
     "T201",    # print
 ]
 isort.combine-as-imports = true
+
+[tool.ruff.format]
+preview = true
+
+[tool.pyright]
+typeCheckingMode = "strict"

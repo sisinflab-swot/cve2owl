@@ -185,6 +185,10 @@ class Logger:
     def mark_written(self, written_bytes: int) -> None:
         self._record_metrics.mark_written(written_bytes)
 
+    def mark_extra_axioms(self, count: int, written_bytes: int) -> None:
+        self._axiom_count += count
+        self._output_bytes += written_bytes
+
     def info(self, msg: str, *args: object) -> None:
         self._log.info(msg, *args)
 

@@ -249,3 +249,18 @@ $RECYCLE.BIN/
 # Project-specific
 /data
 /output
+/demo
+
+# Script di verifica e di appoggio: utili durante lo sviluppo, non fanno parte
+# della pipeline e non vanno versionati.
+/scripts
+
+experiments/campaign.py
+.gitignore
+experiments/campaign.py
+experiments/compare_owl.py
+experiments/compare_owl.py
+experiments/example.py
+experiments/compare_owl.py
+experiments/owl_to_nt.py
+experiments/structure_metrics.py
