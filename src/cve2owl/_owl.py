@@ -2,17 +2,7 @@ import cowl
 
 from ._util import to_camel_case
 
-LITERAL_TRANS_TABLE = str.maketrans({
-    "\\": "\\\\",
-    '"': '\\"',
-})
-
-
 NAME_OVERRIDES: dict[str, str] = {}
-
-
-def escape_literal(literal: str) -> str:
-    return literal.translate(LITERAL_TRANS_TABLE)
 
 
 def owl_name(name: str, owl_type: type) -> str:

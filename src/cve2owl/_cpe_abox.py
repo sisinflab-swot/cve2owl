@@ -6,7 +6,7 @@ import cowl
 from ._cpe_uri import ANY, FIELD_NAMES, NA, cpe_individual_name, parse_cpe
 from ._cve import CVEWriter
 from ._log import logger as log
-from ._owl import escape_literal, owl_data_property, owl_name
+from ._owl import owl_data_property, owl_name
 
 
 class CpeWriter(CVEWriter):
@@ -43,7 +43,7 @@ class CpeWriter(CVEWriter):
             self.described[name] = cpe_string
 
         self._write_cpe_fields(ind, cpe_string)
-        self._write_property_assertion(ind, "cpeName", cowl.Literal(escape_literal(cpe_string)))
+        self._write_property_assertion(ind, "cpeName", cowl.Literal(cpe_string))
         self._write(ind.is_a(self.cpe_class))
 
     def _write_cpe_fields(self, ind: cowl.Individual, cpe_string: str) -> None:
@@ -53,5 +53,5 @@ class CpeWriter(CVEWriter):
             value = values[field_name]
             if value in (ANY, NA):
                 continue
-            literal = cowl.Literal(escape_literal(value))
+            literal = cowl.Literal(value)
             self._write(owl_data_property(self.factory, field_name)(ind, literal))

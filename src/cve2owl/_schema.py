@@ -8,7 +8,6 @@ import cowl
 from ._json import JSONObject, get_as
 from ._log import logger as log
 from ._owl import (
-    escape_literal,
     owl_class,
     owl_data_property,
     owl_datatype,
@@ -186,7 +185,7 @@ def string_restriction(schema: JSONObject) -> ExpressionOrRange:
         return cowl.xsd.string.that_has(
             min_length=get_as(schema, "minLength", int),
             max_length=get_as(schema, "maxLength", int),
-            pattern=get_as(schema, "pattern", escape_literal),
+            pattern=get_as(schema, "pattern", str),
         )
     return cowl.xsd.string
 

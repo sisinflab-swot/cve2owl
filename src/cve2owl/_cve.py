@@ -7,7 +7,7 @@ import cowl
 
 from ._json import JSONObject, JSONValue
 from ._log import logger as log
-from ._owl import escape_literal, owl_data_property, owl_name, owl_object_property
+from ._owl import owl_data_property, owl_name, owl_object_property
 
 type IndividualOrLiteral = cowl.Individual | cowl.Literal
 
@@ -98,9 +98,7 @@ class CVEWriter:
         return ind
 
     def _process_value(self, value: JSONValue, name: str) -> Iterator[IndividualOrLiteral]:
-        if isinstance(value, str):
-            yield cowl.Literal(escape_literal(value))
-        elif isinstance(value, (int, bool)):
+        if isinstance(value, (str, int, bool)):
             yield cowl.Literal(value)
         elif isinstance(value, float):
             yield cowl.Literal(value, datatype=cowl.xsd.decimal)
