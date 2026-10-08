@@ -13,7 +13,7 @@ class CpeWriter(CVEWriter):
     def __init__(self, factory: cowl.PrimitiveFactory, writer: cowl.StreamWriter) -> None:
         super().__init__(factory, writer)
         self.cpe_class = factory.Class("CpeName")
-        # Individual name -> CPE string. The values are the products to look up in the dictionary.
+        # Individual name -> CPE string, for CPEs mentioned by CVE records.
         self.described: dict[str, str] = {}
 
     def process_record(self, record: Path) -> None:
@@ -25,7 +25,8 @@ class CpeWriter(CVEWriter):
             name = cpe_individual_name(cpe_string)
             ind = self.factory.NamedIndividual(name)
 
-            self.describe(ind, cpe_string)
+            # No need to track: each dictionary record is read only once.
+            self.describe(ind, cpe_string, track=False)
 
             for key, value in data.items():
                 if key == "cpeName":
@@ -33,12 +34,13 @@ class CpeWriter(CVEWriter):
                 for v in self._process_value(value, f"{name}_{owl_name(key, cowl.Individual)}"):
                     self._write_property_assertion(ind, key, v)
 
-    def describe(self, ind: cowl.Individual, cpe_string: str) -> None:
+    def describe(self, ind: cowl.Individual, cpe_string: str, *, track: bool = True) -> None:
         # The same CPE can occur in the dictionary and in many CVE records: describe it once.
         name = cpe_individual_name(cpe_string)
         if name in self.described:
             return
-        self.described[name] = cpe_string
+        if track:
+            self.described[name] = cpe_string
 
         self._write_cpe_fields(ind, cpe_string)
         self._write_property_assertion(ind, "cpeName", cowl.Literal(escape_literal(cpe_string)))
