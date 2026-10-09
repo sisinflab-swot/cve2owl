@@ -1,14 +1,16 @@
-import argparse
 import json
 import tarfile
 from pathlib import Path
 
+from cve2owl.core.fetch import download, replace_dir
 from cve2owl.core.jsonio import JSONValue
 from cve2owl.core.log import logger as log
+from cve2owl.data import CPE_FEED, CPE_RECORDS_DIR, CPE_SCHEMA
 
 from .uri import CpeComponents, CpeParseError, field_to_name, parse_cpe
 
-DEFAULT_CPE_DIR = "data/cpe"
+SCHEMA_URL = "https://csrc.nist.gov/schema/nvd/api/2.0/cpe_api_json_2.0.schema"
+FEED_URL = "https://nvd.nist.gov/feeds/json/cpe/2.0/nvdcpe-2.0.tar.gz"
 
 # Only the product dictionary is needed: NVD's match criteria feed duplicates the
 # cpeApplicability data already in the CVE records.
@@ -18,7 +20,6 @@ NAME_KEY = "cpeName"
 
 
 def record_path(records_dir: Path, cpe: CpeComponents) -> Path:
-    # Derived from the CPE alone, so products mentioned by CVE records can be found.
     folder = field_to_name(cpe.vendor)
     return records_dir / folder / (cpe.individual_name + ".json")
 
@@ -79,36 +80,18 @@ def explode_archive(archive_path: Path, records_dir: Path) -> tuple[int, int]:
     return written, skipped
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Explode the downloaded NVD CPE dictionary into one JSON file per product.",
-    )
-    parser.add_argument(
-        "feed",
-        help="The downloaded .tar.gz feed, for example data/cpe/nvdcpe-2.0.tar.gz",
-    )
-    parser.add_argument(
-        "--out-dir",
-        default=DEFAULT_CPE_DIR,
-        help=f"Where to write the product files (default: {DEFAULT_CPE_DIR}).",
-    )
-    args = parser.parse_args()
+def fetch_schema(*, force: bool = False) -> None:
+    download(SCHEMA_URL, CPE_SCHEMA, force=force)
 
-    feed_path = Path(args.feed)
-    if not feed_path.exists():
-        log.info("%s does not exist", feed_path)
+
+def fetch_dictionary(*, force: bool = False) -> None:
+    changed = download(FEED_URL, CPE_FEED, force=force)
+    if not changed and CPE_RECORDS_DIR.exists():
         return
 
-    records_dir = Path(args.out_dir) / "dictionary" / "records"
-    log.info("processing %s ...", feed_path)
-    written, skipped = explode_archive(feed_path, records_dir)
-    log.info(
-        "Done: %d record file(s) written under %s (%d skipped).",
-        written,
-        records_dir,
-        skipped,
-    )
+    def build(records_dir: Path) -> None:
+        log.info("Splitting %s into one file per product...", CPE_FEED)
+        written, skipped = explode_archive(CPE_FEED, records_dir)
+        log.info("  %d record files written (%d skipped)", written, skipped)
 
-
-if __name__ == "__main__":
-    main()
+    replace_dir(CPE_RECORDS_DIR, build)
