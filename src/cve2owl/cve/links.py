@@ -32,8 +32,7 @@ def _cpe_strings(value: JSONValue) -> list[str]:
 
 
 def link_declarations() -> list[cowl.Axiom]:
-    # Not owl_name(), which would add the "has" prefix.
-    return [cowl.Declaration(CVE.object_property(name)) for name in LINK_PROPERTIES]
+    return [cowl.Declaration(CVE.object_property(name, raw=True)) for name in LINK_PROPERTIES]
 
 
 # Object hook that links CVE records to the CPE and CWE individuals they mention.
@@ -74,5 +73,5 @@ class CveLinker:
         link_name: str,
         target: cowl.Individual,
     ) -> None:
-        link = CVE.object_property(link_name)
+        link = CVE.object_property(link_name, raw=True)
         self.sink.write(link(subject, target))

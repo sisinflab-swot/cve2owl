@@ -1,16 +1,22 @@
 from collections.abc import Callable, Iterator, Mapping, Set as AbstractSet
+from functools import cache
 from typing import cast
 
 import cowl
 
 from .jsonio import JSONObject, JSONValue
-from .naming import Namespace, enum_individual, owl_data_property, owl_name, owl_object_property
+from .naming import Namespace, owl_name
 from .sink import AxiomSink
 
 type IndividualOrLiteral = cowl.Individual | cowl.Literal
 
 # Called after the properties of each object have been written.
 type ObjectHook = Callable[[JSONObject, cowl.NamedIndividual], None]
+
+
+@cache
+def _key_name(key: str) -> str:
+    return owl_name(key, cowl.Individual)
 
 
 # Objects become named individuals (named after their parent and key, plus the index when a list
@@ -47,9 +53,9 @@ class JsonAboxMapper:
             if key in exclude:
                 continue
             if (enum_type := self.enum_keys.get(key)) and isinstance(value, str):
-                self.assert_value(ind, key, enum_individual(self.ns, enum_type, value))
+                self.assert_value(ind, key, self.ns.enum_individual(enum_type, value))
             else:
-                for v in self.values(value, f"{name}_{owl_name(key, cowl.Individual)}"):
+                for v in self.values(value, f"{name}_{_key_name(key)}"):
                     self.assert_value(ind, key, v)
         if self.on_object:
             self.on_object(obj, ind)
@@ -70,6 +76,6 @@ class JsonAboxMapper:
 
     def assert_value(self, subject: cowl.Individual, prop: str, obj: IndividualOrLiteral) -> None:
         if cowl.is_individual(obj):
-            self.sink.write(owl_object_property(self.ns, prop)(subject, obj))
+            self.sink.write(self.ns.object_property(prop)(subject, obj))
         else:
-            self.sink.write(owl_data_property(self.ns, prop)(subject, obj))
+            self.sink.write(self.ns.data_property(prop)(subject, obj))

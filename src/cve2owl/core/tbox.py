@@ -4,14 +4,7 @@ from typing import Any, cast, overload
 import cowl
 
 from .jsonio import JSONObject, JSONValue, get_as
-from .naming import (
-    Namespace,
-    enum_individual,
-    owl_class,
-    owl_data_property,
-    owl_datatype,
-    owl_object_property,
-)
+from .naming import Namespace
 
 type ExpressionOrRange = cowl.ClassExpression | cowl.DataRange
 
@@ -75,15 +68,15 @@ class SchemaTranslator:
             obj = self.owl_object(schema)
 
         if cowl.is_data_range(obj):
-            self.add(owl_datatype(self.ns, name).is_defined_as(obj))
+            self.add(self.ns.datatype(name).is_defined_as(obj))
             return
 
         if not isinstance(obj, cowl.ObjectIntersectionOf):
-            self.add(owl_class(self.ns, name).is_a(obj))
+            self.add(self.ns.cls(name).is_a(obj))
             return
 
         for operand in obj.operands():
-            self.add(owl_class(self.ns, name).is_a(operand))
+            self.add(self.ns.cls(name).is_a(operand))
 
     def resolve_ref(self, ref: str) -> cowl.Class | cowl.Datatype:
         if (index := ref.rfind("/definitions/")) == -1:
@@ -92,9 +85,9 @@ class SchemaTranslator:
 
         name = ref[index + len("/definitions/") :]
 
-        if (cls := owl_class(self.ns, name)) in self.onto:
+        if (cls := self.ns.cls(name)) in self.onto:
             return cls
-        if (dt := owl_datatype(self.ns, name)) in self.onto:
+        if (dt := self.ns.datatype(name)) in self.onto:
             return dt
 
         msg = f"Unresolved $ref: {ref}"
@@ -163,11 +156,11 @@ class SchemaTranslator:
         operands: list[cowl.ClassExpression] = []
 
         if cowl.is_class_expression(filler):
-            prop = owl_object_property(self.ns, name)
+            prop = self.ns.object_property(name)
             if filler != cowl.owl.thing:
                 operands.append(prop.only(filler))
         else:
-            prop = owl_data_property(self.ns, name)
+            prop = self.ns.data_property(name)
             operands.append(prop.only(filler))
 
         if min_ == max_:
@@ -192,8 +185,8 @@ def enum_as_class(
         raise ValueError(msg)
 
     ns = translator.ns
-    base_class = owl_class(ns, base_class_name)
-    individuals = [enum_individual(ns, base_class_name, value) for value in enum]
+    base_class = ns.cls(base_class_name)
+    individuals = [ns.enum_individual(base_class_name, value) for value in enum]
 
     for i in individuals:
         translator.add(i.is_a(base_class))

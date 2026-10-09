@@ -4,7 +4,6 @@ import cowl
 
 from cve2owl.core.abox import JsonAboxMapper
 from cve2owl.core.jsonio import read_json_record
-from cve2owl.core.naming import owl_data_property
 from cve2owl.core.sink import AxiomSink
 
 from .tbox import CPE, CPE_NAME_CLASS
@@ -60,9 +59,9 @@ class CpeWriter:
             if value in (ANY, NA):
                 continue
             literal = cowl.Literal(value)
-            self.sink.write(owl_data_property(CPE, field_name)(ind, literal))
+            self.sink.write(CPE.data_property(field_name)(ind, literal))
 
 
 def component_declarations() -> list[cowl.Axiom]:
     # Not in the CPE schema, which has the CPE string only.
-    return [cowl.Declaration(owl_data_property(CPE, name)) for name in FIELD_NAMES]
+    return [cowl.Declaration(CPE.data_property(name)) for name in FIELD_NAMES]
