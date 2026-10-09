@@ -1,3 +1,5 @@
+from functools import cache
+
 import cowl
 
 
@@ -9,21 +11,33 @@ class Namespace:
         self.iri = iri
         self.namespace = iri + "#"
         self._factory = prefix_map(self)
+        self._classes: dict[str, cowl.Class] = {}
+        self._datatypes: dict[str, cowl.Datatype] = {}
+        self._object_properties: dict[str, cowl.ObjectProperty] = {}
+        self._data_properties: dict[str, cowl.DataProperty] = {}
 
     def _iri(self, name: str) -> str:
         return f"{self.prefix}:{name}"
 
     def cls(self, name: str) -> cowl.Class:
-        return self._factory.Class(self._iri(name))
+        if (entity := self._classes.get(name)) is None:
+            entity = self._classes[name] = self._factory.Class(self._iri(name))
+        return entity
 
     def datatype(self, name: str) -> cowl.Datatype:
-        return self._factory.Datatype(self._iri(name))
+        if (entity := self._datatypes.get(name)) is None:
+            entity = self._datatypes[name] = self._factory.Datatype(self._iri(name))
+        return entity
 
     def object_property(self, name: str) -> cowl.ObjectProperty:
-        return self._factory.ObjectProperty(self._iri(name))
+        if (entity := self._object_properties.get(name)) is None:
+            entity = self._object_properties[name] = self._factory.ObjectProperty(self._iri(name))
+        return entity
 
     def data_property(self, name: str) -> cowl.DataProperty:
-        return self._factory.DataProperty(self._iri(name))
+        if (entity := self._data_properties.get(name)) is None:
+            entity = self._data_properties[name] = self._factory.DataProperty(self._iri(name))
+        return entity
 
     def individual(self, name: str) -> cowl.NamedIndividual:
         return self._factory.NamedIndividual(self._iri(name))
@@ -45,6 +59,8 @@ def to_camel_case(string: str) -> str:
     return "".join(cap_first(x.lower() if x.isupper() else x) for x in string.split("_"))
 
 
+# Cached, as it is called for every value written: only pass names from a bounded set.
+@cache
 def owl_name(name: str, owl_type: type) -> str:
     name = name.replace(" ", "_")
     if owl_type in (cowl.Class, cowl.Datatype):
@@ -70,10 +86,6 @@ def owl_object_property(ns: Namespace, name: str) -> cowl.ObjectProperty:
 
 def owl_data_property(ns: Namespace, name: str) -> cowl.DataProperty:
     return ns.data_property(owl_name(name, cowl.DataProperty))
-
-
-def owl_individual(ns: Namespace, name: str) -> cowl.NamedIndividual:
-    return ns.individual(owl_name(name, cowl.NamedIndividual))
 
 
 def enum_individual(ns: Namespace, type_name: str, value: str) -> cowl.NamedIndividual:

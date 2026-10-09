@@ -1,16 +1,14 @@
-import json
+import re
 from pathlib import Path
+
+# Search by regex instead of parsing the whole JSON.
+DATE_PUBLISHED = re.compile(rb'"datePublished"\s*:\s*"([^"]{0,10})')
 
 
 def record_date(record: Path) -> str:
     # Rejected records have no publication date: "" puts them outside any range.
-    with record.open(encoding="utf-8") as f:
-        data = json.load(f)
-    metadata = data.get("cveMetadata", {})
-    date = metadata.get("datePublished")
-    if date is None:
-        return ""
-    return date[0:10]
+    match = DATE_PUBLISHED.search(record.read_bytes())
+    return match[1].decode() if match else ""
 
 
 def date_in_range(date: str, from_date: str | None, to_date: str | None) -> bool:

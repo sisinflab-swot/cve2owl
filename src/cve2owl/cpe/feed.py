@@ -6,7 +6,7 @@ from pathlib import Path
 from cve2owl.core.jsonio import JSONValue
 from cve2owl.core.log import logger as log
 
-from .uri import CpeParseError, cpe_individual_name, field_to_name, parse_cpe
+from .uri import CpeComponents, CpeParseError, field_to_name, parse_cpe
 
 DEFAULT_CPE_DIR = "data/cpe"
 
@@ -17,11 +17,10 @@ RECORD_KEY = "cpe"
 NAME_KEY = "cpeName"
 
 
-def record_path(records_dir: Path, cpe_string: str) -> Path:
-    # Derived from the CPE string alone, so products mentioned by CVE records can be found.
-    components = parse_cpe(cpe_string)
-    folder = field_to_name(components.vendor)
-    return records_dir / folder / (cpe_individual_name(cpe_string) + ".json")
+def record_path(records_dir: Path, cpe: CpeComponents) -> Path:
+    # Derived from the CPE alone, so products mentioned by CVE records can be found.
+    folder = field_to_name(cpe.vendor)
+    return records_dir / folder / (cpe.individual_name + ".json")
 
 
 def explode_page(page: JSONValue, records_dir: Path) -> tuple[int, int]:
@@ -40,7 +39,7 @@ def explode_page(page: JSONValue, records_dir: Path) -> tuple[int, int]:
             continue
 
         try:
-            path = record_path(records_dir, cpe_string)
+            path = record_path(records_dir, parse_cpe(cpe_string))
         except CpeParseError:
             skipped = skipped + 1
             continue

@@ -146,11 +146,12 @@ def process_cpe_dictionary(cpe_dir: Path, writer: CpeWriter, *, all_cpe: bool) -
     families = 0
     # Copy, as process_record() updates writer.described.
     for cpe_string in list(writer.described.values()):
+        cpe = parse_cpe(cpe_string)
         # Any version: a product family, not a product.
-        if parse_cpe(cpe_string).version == ANY:
+        if cpe.version == ANY:
             families = families + 1
             continue
-        json_file = record_path(cpe_dir, cpe_string)
+        json_file = record_path(cpe_dir, cpe)
         if json_file.exists():
             writer.process_record(json_file)
             found = found + 1

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import cached_property
 
 ANY = "ANY"  # "*"
 NA = "NA"  # "-"
@@ -48,6 +49,22 @@ class CpeComponents:
 
     def as_dict(self) -> dict[str, str]:
         return {name: getattr(self, name) for name in FIELD_NAMES}
+
+    @cached_property
+    def individual_name(self) -> str:
+        # Built from the parsed fields, so 2.2 and 2.3 names of the same product match. Example:
+        # cpe:2.3:o:tenda:w9_firmware:1.0.0.7\(4456\)_cn:*:*:*:*:*:*:*
+        # -> cpe~o~tenda~w9_firmware~1.0.0.7%284456%29_cn
+        components = self.as_dict()
+        values = [components[field_name] for field_name in FIELD_NAMES]
+
+        while len(values) > 1 and values[-1] == ANY:
+            values.pop()
+
+        name = "cpe"
+        for value in values:
+            name = name + SEPARATOR + field_to_name(value)
+        return name
 
 
 def make_components(values: dict[str, str]) -> CpeComponents:
@@ -180,19 +197,3 @@ def field_to_name(value: str) -> str:
             for byte in char.encode("utf-8"):
                 result = result + f"%{byte:02x}"
     return result
-
-
-def cpe_individual_name(cpe_string: str) -> str:
-    # Built from the parsed fields, so 2.2 and 2.3 names of the same product match. Example:
-    # cpe:2.3:o:tenda:w9_firmware:1.0.0.7\(4456\)_cn:*:*:*:*:*:*:*
-    # -> cpe~o~tenda~w9_firmware~1.0.0.7%284456%29_cn
-    components = parse_cpe(cpe_string).as_dict()
-    values = [components[field_name] for field_name in FIELD_NAMES]
-
-    while len(values) > 1 and values[-1] == ANY:
-        values.pop()
-
-    name = "cpe"
-    for value in values:
-        name = name + SEPARATOR + field_to_name(value)
-    return name
