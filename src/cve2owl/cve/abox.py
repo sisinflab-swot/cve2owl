@@ -16,10 +16,10 @@ class CveWriter:
         on_object: ObjectHook | None = None,
     ) -> None:
         self.sink = sink
-        ref_keys = {
+        key_mappers = {
             key: partial(CVE.enum_individual, enum_type) for key, enum_type in ENUM_KEYS.items()
         }
-        self.mapper = JsonAboxMapper(CVE, sink, ref_keys=ref_keys, on_object=on_object)
+        self.mapper = JsonAboxMapper(CVE, sink, key_mappers=key_mappers, on_object=on_object)
         self.record_class = CVE.cls(RECORD_CLASS)
 
     def process_record(self, record: Path) -> None:

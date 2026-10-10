@@ -157,7 +157,7 @@ def generate(
         write_extras(sink)
 
         cpe_writer = CpeWriter(sink)
-        cwe_writer = CweWriter(sink, CVE.individual)
+        cwe_writer = CweWriter(sink, cve_mapper=CVE.individual)
 
         if cwe:
             process_cwe_catalog(cwe_writer)

@@ -10,8 +10,8 @@ from .sink import AxiomSink
 
 type IndividualOrLiteral = cowl.Individual | cowl.Literal
 
-# Maps a string value to the individual it refers to.
-type ValueIndividual = Callable[[str], cowl.NamedIndividual]
+# Maps a string value (an ID, an enum value) to the individual it refers to.
+type IndividualMapper = Callable[[str], cowl.NamedIndividual]
 
 # Called after the properties of each object have been written.
 type ObjectHook = Callable[[JSONObject, cowl.NamedIndividual], None]
@@ -28,12 +28,12 @@ class JsonAboxMapper:
         ns: Namespace,
         sink: AxiomSink,
         *,
-        ref_keys: Mapping[str, ValueIndividual] | None = None,
+        key_mappers: Mapping[str, IndividualMapper] | None = None,
         on_object: ObjectHook | None = None,
     ) -> None:
         self.ns = ns
         self.sink = sink
-        self.ref_keys = ref_keys or {}  # JSON key -> individual its string values refer to
+        self.key_mappers = key_mappers or {}  # JSON key -> mapper of its string values
         self.on_object = on_object
 
     def individual(self, obj: JSONObject, name: str) -> cowl.NamedIndividual:
@@ -52,8 +52,8 @@ class JsonAboxMapper:
         for key, value in obj.items():
             if key in exclude:
                 continue
-            if (ref := self.ref_keys.get(key)) and isinstance(value, str):
-                self.assert_value(ind, key, ref(value))
+            if (mapper := self.key_mappers.get(key)) and isinstance(value, str):
+                self.assert_value(ind, key, mapper(value))
             else:
                 for v in self.values(value, f"{name}_{_key_name(key)}"):
                     self.assert_value(ind, key, v)

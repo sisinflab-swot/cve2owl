@@ -3,7 +3,7 @@ from pathlib import Path
 
 import cowl
 
-from cve2owl.core.abox import JsonAboxMapper, ValueIndividual
+from cve2owl.core.abox import IndividualMapper, JsonAboxMapper
 from cve2owl.core.jsonio import JSONObject, get_as, read_json_record
 from cve2owl.core.sink import AxiomSink
 
@@ -36,10 +36,11 @@ def cwe_individual_name(cwe_id: str) -> str:
 
 
 class CweWriter:
-    def __init__(self, sink: AxiomSink, cve_individual: ValueIndividual) -> None:
+    def __init__(self, sink: AxiomSink, cve_mapper: IndividualMapper) -> None:
         self.sink = sink
-        self.cve_individual = cve_individual
-        self.mapper = JsonAboxMapper(CWE, sink, ref_keys=dict.fromkeys(REF_KEYS, self.individual))
+        self.cve_mapper = cve_mapper
+        key_mappers = dict.fromkeys(REF_KEYS, self.individual)
+        self.mapper = JsonAboxMapper(CWE, sink, key_mappers=key_mappers)
 
     def individual(self, cwe_id: str) -> cowl.NamedIndividual:
         return CWE.individual(cwe_individual_name(cwe_id))
@@ -68,7 +69,7 @@ class CweWriter:
         references = dict.fromkeys(get_as(example, "Reference", str) for example in examples)
         for reference in references:
             if reference is not None and CVE_ID_REGEX.fullmatch(reference):
-                self.sink.write(observed_example(ind, self.cve_individual(reference)))
+                self.sink.write(observed_example(ind, self.cve_mapper(reference)))
 
 
 def link_axioms() -> list[cowl.Axiom]:
