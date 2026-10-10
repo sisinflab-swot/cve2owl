@@ -12,9 +12,6 @@ from .vocab import CVE
 CPE_KEYS = {"criteria", "cpes"}
 
 CWE_KEY = "cweId"
-
-# No "has" prefix, so they cannot clash with properties derived from JSON keys
-# (e.g. the "CWE" key in x_osv becomes hasCwe).
 CPE_LINK = "vulnerableCpe"
 CWE_LINK = "cwe"
 # Criteria with "vulnerable": false denote the platform (e.g. the OS), not the vulnerable product.
@@ -35,7 +32,7 @@ def link_declarations() -> list[cowl.Axiom]:
     return [cowl.Declaration(CVE.object_property(name, raw=True)) for name in LINK_PROPERTIES]
 
 
-# Object hook that links CVE records to the CPE and CWE individuals they mention.
+# Links CVE records to the CPE and CWE individuals they mention.
 class CveLinker:
     def __init__(
         self,
@@ -61,7 +58,6 @@ class CveLinker:
                     cpe_ind = self.cpe.individual(cpe)
                     self._write_link(ind, link_name, cpe_ind)
                     self.cpe.describe(cpe_ind, cpe_string, cpe)
-
             elif key == CWE_KEY:
                 # Not "weakness": the target can also be a category or a view.
                 if isinstance(value, str) and value.startswith("CWE-"):

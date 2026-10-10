@@ -280,3 +280,24 @@ def rewrite_openapi_refs(node: JSONValue) -> None:
     elif isinstance(node, list):
         for item in node:
             rewrite_openapi_refs(item)
+
+
+def rewrite_properties(
+    node: JSONValue,
+    *,
+    rename: Mapping[str, str] | None = None,
+    schemas: Mapping[str, JSONObject] | None = None,
+) -> None:
+    rename = rename or {}
+    schemas = schemas or {}
+    if isinstance(node, dict):
+        if isinstance(props := node.get("properties"), dict):
+            node["properties"] = {
+                (name := rename.get(key, key)): schemas.get(name, value)
+                for key, value in props.items()
+            }
+        for value in node.values():
+            rewrite_properties(value, rename=rename, schemas=schemas)
+    elif isinstance(node, list):
+        for item in node:
+            rewrite_properties(item, rename=rename, schemas=schemas)

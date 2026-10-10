@@ -16,7 +16,7 @@ from .cve.dates import date_in_range, record_date
 from .cve.links import CveLinker, link_declarations
 from .cve.tbox import cve_tbox
 from .cve.vocab import CVE
-from .cwe.abox import DIRECTORIES, CweWriter
+from .cwe.abox import DIRECTORIES, CweWriter, link_axioms
 from .cwe.tbox import CWE, cwe_tbox
 from .data import (
     CPE_RECORDS_DIR,
@@ -73,6 +73,7 @@ def write_extras(sink: AxiomSink) -> None:
     count = sink.write_extra([
         *link_declarations(),
         *component_declarations(),
+        *link_axioms(),
     ])
     log.info("Enriched with %d extra axioms", count)
 
@@ -156,7 +157,7 @@ def generate(
         write_extras(sink)
 
         cpe_writer = CpeWriter(sink)
-        cwe_writer = CweWriter(sink)
+        cwe_writer = CweWriter(sink, CVE.individual)
 
         if cwe:
             process_cwe_catalog(cwe_writer)

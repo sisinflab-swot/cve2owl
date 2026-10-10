@@ -1,3 +1,4 @@
+from functools import partial
 from pathlib import Path
 
 from cve2owl.core.abox import JsonAboxMapper, ObjectHook
@@ -15,7 +16,10 @@ class CveWriter:
         on_object: ObjectHook | None = None,
     ) -> None:
         self.sink = sink
-        self.mapper = JsonAboxMapper(CVE, sink, enum_keys=ENUM_KEYS, on_object=on_object)
+        ref_keys = {
+            key: partial(CVE.enum_individual, enum_type) for key, enum_type in ENUM_KEYS.items()
+        }
+        self.mapper = JsonAboxMapper(CVE, sink, ref_keys=ref_keys, on_object=on_object)
         self.record_class = CVE.cls(RECORD_CLASS)
 
     def process_record(self, record: Path) -> None:

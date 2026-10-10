@@ -10,6 +10,9 @@ from .sink import AxiomSink
 
 type IndividualOrLiteral = cowl.Individual | cowl.Literal
 
+# Maps a string value to the individual it refers to.
+type ValueIndividual = Callable[[str], cowl.NamedIndividual]
+
 # Called after the properties of each object have been written.
 type ObjectHook = Callable[[JSONObject, cowl.NamedIndividual], None]
 
@@ -19,21 +22,18 @@ def _key_name(key: str) -> str:
     return owl_name(key, cowl.Individual)
 
 
-# Objects become named individuals (named after their parent and key, plus the index when a list
-# has more than one element), scalars become literals.
 class JsonAboxMapper:
     def __init__(
         self,
         ns: Namespace,
         sink: AxiomSink,
         *,
-        enum_keys: Mapping[str, str] | None = None,
+        ref_keys: Mapping[str, ValueIndividual] | None = None,
         on_object: ObjectHook | None = None,
     ) -> None:
         self.ns = ns
         self.sink = sink
-        # JSON key -> enum type whose individuals replace the key's string values
-        self.enum_keys = enum_keys or {}
+        self.ref_keys = ref_keys or {}  # JSON key -> individual its string values refer to
         self.on_object = on_object
 
     def individual(self, obj: JSONObject, name: str) -> cowl.NamedIndividual:
@@ -52,8 +52,8 @@ class JsonAboxMapper:
         for key, value in obj.items():
             if key in exclude:
                 continue
-            if (enum_type := self.enum_keys.get(key)) and isinstance(value, str):
-                self.assert_value(ind, key, self.ns.enum_individual(enum_type, value))
+            if (ref := self.ref_keys.get(key)) and isinstance(value, str):
+                self.assert_value(ind, key, ref(value))
             else:
                 for v in self.values(value, f"{name}_{_key_name(key)}"):
                     self.assert_value(ind, key, v)
