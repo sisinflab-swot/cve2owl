@@ -3,13 +3,15 @@ from pathlib import Path
 import cowl
 
 from cve2owl.core.abox import JsonAboxMapper
-from cve2owl.core.jsonio import read_json_record
+from cve2owl.core.jsonio import JSONObject, get_as, read_json_record
 from cve2owl.core.sink import AxiomSink
 
 from .tbox import CPE, CPE_NAME_CLASS
-from .uri import ANY, FIELD_NAMES, NA, CpeComponents, parse_cpe
+from .uri import ANY, FIELD_NAMES, NA, CpeComponents, CpeParseError, parse_cpe
 
 NAME_KEY = "cpeName"
+DEPRECATED_BY_KEY = "deprecatedBy"
+DEPRECATES_KEY = "deprecates"
 
 
 class CpeWriter:
@@ -32,6 +34,23 @@ class CpeWriter:
             # No need to track: each dictionary record is read only once.
             self.describe(ind, cpe_string, cpe, track=False)
             self.mapper.assert_properties(ind, data, cpe.individual_name, exclude={NAME_KEY})
+            for key in (DEPRECATED_BY_KEY, DEPRECATES_KEY):
+                self._write_links(ind, key, get_as(data, key, list[JSONObject]) or [])
+
+    def _write_links(self, ind: cowl.Individual, key: str, entries: list[JSONObject]) -> None:
+        link = CPE.object_property(key, raw=True)
+        # Some entries list the same CPE twice.
+        targets: dict[str, CpeComponents] = {}
+        for entry in entries:
+            if (cpe_string := get_as(entry, NAME_KEY, str)) is None:
+                continue
+            try:
+                cpe = parse_cpe(cpe_string)
+            except CpeParseError:
+                continue
+            targets.setdefault(cpe.individual_name, cpe)
+        for cpe in targets.values():
+            self.sink.write(link(ind, self.individual(cpe)))
 
     def describe(
         self,
@@ -65,3 +84,9 @@ class CpeWriter:
 def component_declarations() -> list[cowl.Axiom]:
     # Not in the CPE schema, which has the CPE string only.
     return [cowl.Declaration(CPE.data_property(name)) for name in FIELD_NAMES]
+
+
+def deprecation_axioms() -> list[cowl.Axiom]:
+    deprecated_by = CPE.object_property(DEPRECATED_BY_KEY, raw=True)
+    deprecates = CPE.object_property(DEPRECATES_KEY, raw=True)
+    return [deprecated_by.declare(), deprecates.declare(), deprecated_by.is_inverse_of(deprecates)]

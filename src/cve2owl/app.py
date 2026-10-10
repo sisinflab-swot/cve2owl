@@ -7,7 +7,7 @@ import cowl
 from .core.jsonio import read_json_record, walk
 from .core.log import logger as log
 from .core.sink import AxiomSink
-from .cpe.abox import CpeWriter, component_declarations
+from .cpe.abox import CpeWriter, component_declarations, deprecation_axioms
 from .cpe.fetch import record_path
 from .cpe.tbox import CPE, cpe_tbox
 from .cpe.uri import ANY, parse_cpe
@@ -73,6 +73,7 @@ def write_extras(sink: AxiomSink) -> None:
     count = sink.write_extra([
         *link_declarations(),
         *component_declarations(),
+        *deprecation_axioms(),
         *link_axioms(),
     ])
     log.info("Enriched with %d extra axioms", count)
