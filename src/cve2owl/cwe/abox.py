@@ -72,7 +72,7 @@ class CweWriter:
                 self.sink.write(observed_example(ind, self.cve_mapper(reference)))
 
 
-def link_axioms() -> list[cowl.Axiom]:
+def extra_axioms() -> list[cowl.Axiom]:
     child_of = CWE.object_property(CHILD_OF_LINK, raw=True)
     descendant_of = CWE.object_property(DESCENDANT_OF_LINK, raw=True)
     return [

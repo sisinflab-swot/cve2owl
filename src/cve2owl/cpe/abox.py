@@ -81,12 +81,12 @@ class CpeWriter:
             self.sink.write(CPE.data_property(field_name)(ind, literal))
 
 
-def component_declarations() -> list[cowl.Axiom]:
-    # Not in the CPE schema, which has the CPE string only.
-    return [cowl.Declaration(CPE.data_property(name)) for name in FIELD_NAMES]
-
-
-def deprecation_axioms() -> list[cowl.Axiom]:
+def extra_axioms() -> list[cowl.Axiom]:
     deprecated_by = CPE.object_property(DEPRECATED_BY_KEY, raw=True)
     deprecates = CPE.object_property(DEPRECATES_KEY, raw=True)
-    return [deprecated_by.declare(), deprecates.declare(), deprecated_by.is_inverse_of(deprecates)]
+    return [
+        *(cowl.Declaration(CPE.data_property(name)) for name in FIELD_NAMES),
+        deprecated_by.declare(),
+        deprecates.declare(),
+        deprecated_by.is_inverse_of(deprecates),
+    ]

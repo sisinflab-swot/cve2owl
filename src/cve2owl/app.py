@@ -7,16 +7,16 @@ import cowl
 from .core.jsonio import read_json_record, walk
 from .core.log import logger as log
 from .core.sink import AxiomSink
-from .cpe.abox import CpeWriter, component_declarations, deprecation_axioms
+from .cpe.abox import CpeWriter, extra_axioms as cpe_extra_axioms
 from .cpe.fetch import record_path
 from .cpe.tbox import CPE, cpe_tbox
 from .cpe.uri import ANY, parse_cpe
 from .cve.abox import CveWriter
 from .cve.dates import date_in_range, record_date
-from .cve.links import CveLinker, link_declarations
+from .cve.links import CveLinker, extra_axioms as cve_extra_axioms
 from .cve.tbox import cve_tbox
 from .cve.vocab import CVE
-from .cwe.abox import DIRECTORIES, CweWriter, link_axioms
+from .cwe.abox import DIRECTORIES, CweWriter, extra_axioms as cwe_extra_axioms
 from .cwe.tbox import CWE, cwe_tbox
 from .data import (
     CPE_RECORDS_DIR,
@@ -70,12 +70,7 @@ def write_tboxes(sink: AxiomSink) -> None:
 
 
 def write_extras(sink: AxiomSink) -> None:
-    count = sink.write_extra([
-        *link_declarations(),
-        *component_declarations(),
-        *deprecation_axioms(),
-        *link_axioms(),
-    ])
+    count = sink.write_extra([*cve_extra_axioms(), *cpe_extra_axioms(), *cwe_extra_axioms()])
     log.info("Enriched with %d extra axioms", count)
 
 

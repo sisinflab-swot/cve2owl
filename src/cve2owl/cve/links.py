@@ -28,7 +28,7 @@ def _cpe_strings(value: JSONValue) -> list[str]:
     return []
 
 
-def link_declarations() -> list[cowl.Axiom]:
+def extra_axioms() -> list[cowl.Axiom]:
     return [cowl.Declaration(CVE.object_property(name, raw=True)) for name in LINK_PROPERTIES]
 
 
