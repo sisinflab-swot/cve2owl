@@ -109,6 +109,14 @@ if unknown := set(ENUM_KEYS.values()) - ENUM_TYPES:
     msg = f"enum types missing from ENUM_TYPES: {sorted(unknown)}"
     raise ValueError(msg)
 
+IGNORE_KEYS: frozenset[str] = frozenset({
+    # Converter/generator metadata, makes the ontology not OWL 2 DL.
+    "x_ConverterErrors",
+    "x_generator",
+    # CVE JSON 4.0 records make the ontology inconsistent.
+    "x_legacyV4Record",
+})
+
 IGNORE: frozenset[str] = frozenset({
     "noneSeverityType",
     "lowSeverityType",

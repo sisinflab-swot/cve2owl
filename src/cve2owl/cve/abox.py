@@ -5,7 +5,7 @@ from cve2owl.core.abox import JsonAboxMapper, ObjectHook
 from cve2owl.core.jsonio import read_json_record
 from cve2owl.core.sink import AxiomSink
 
-from .vocab import CVE, ENUM_KEYS, RECORD_CLASS
+from .vocab import CVE, ENUM_KEYS, IGNORE_KEYS, RECORD_CLASS
 
 
 class CveWriter:
@@ -19,7 +19,13 @@ class CveWriter:
         key_mappers = {
             key: partial(CVE.enum_individual, enum_type) for key, enum_type in ENUM_KEYS.items()
         }
-        self.mapper = JsonAboxMapper(CVE, sink, key_mappers=key_mappers, on_object=on_object)
+        self.mapper = JsonAboxMapper(
+            CVE,
+            sink,
+            key_mappers=key_mappers,
+            ignore=IGNORE_KEYS,
+            on_object=on_object,
+        )
         self.record_class = CVE.cls(RECORD_CLASS)
 
     def process_record(self, record: Path) -> None:

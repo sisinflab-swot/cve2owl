@@ -29,11 +29,13 @@ class JsonAboxMapper:
         sink: AxiomSink,
         *,
         key_mappers: Mapping[str, IndividualMapper] | None = None,
+        ignore: AbstractSet[str] = frozenset(),
         on_object: ObjectHook | None = None,
     ) -> None:
         self.ns = ns
         self.sink = sink
-        self.key_mappers = key_mappers or {}  # JSON key -> mapper of its string values
+        self.key_mappers = key_mappers or {}
+        self.ignore = ignore
         self.on_object = on_object
 
     def individual(self, obj: JSONObject, name: str) -> cowl.NamedIndividual:
@@ -50,7 +52,7 @@ class JsonAboxMapper:
         exclude: AbstractSet[str] = frozenset(),
     ) -> None:
         for key, value in obj.items():
-            if key in exclude:
+            if key in exclude or key in self.ignore:
                 continue
             if (mapper := self.key_mappers.get(key)) and isinstance(value, str):
                 self.assert_value(ind, key, mapper(value))
