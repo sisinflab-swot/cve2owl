@@ -36,11 +36,11 @@ def explode_page(page: JSONValue, records_dir: Path) -> tuple[int, int]:
         record = wrapper.get(RECORD_KEY) if isinstance(wrapper, dict) else None
         cpe_string = record.get(NAME_KEY) if isinstance(record, dict) else None
         if not isinstance(cpe_string, str) or not cpe_string:
-            skipped = skipped + 1
+            skipped += 1
             continue
 
         if (cpe := try_parse_cpe(cpe_string)) is None:
-            skipped = skipped + 1
+            skipped += 1
             continue
         path = record_path(records_dir, cpe)
 
@@ -49,7 +49,7 @@ def explode_page(page: JSONValue, records_dir: Path) -> tuple[int, int]:
             created_folders.add(path.parent)
 
         path.write_text(json.dumps(record, ensure_ascii=False), encoding="utf-8")
-        written = written + 1
+        written += 1
 
     return written, skipped
 
@@ -74,7 +74,7 @@ def explode_archive(archive_path: Path, records_dir: Path) -> tuple[int, int]:
             page_written, page_skipped = explode_page(page, records_dir)
             written = written + page_written
             skipped = skipped + page_skipped
-            page_number = page_number + 1
+            page_number += 1
             log.info("  page %d (%s): %d records written so far", page_number, member.name, written)
     return written, skipped
 

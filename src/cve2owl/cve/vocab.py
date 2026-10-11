@@ -113,7 +113,7 @@ IGNORE_KEYS: frozenset[str] = frozenset({
     # Converter/generator metadata, makes the ontology not OWL 2 DL.
     "x_ConverterErrors",
     "x_generator",
-    # CVE JSON 4.0 records make the ontology inconsistent.
+    # CVE JSON 4.0 records, makes the ontology not OWL 2 DL.
     "x_legacyV4Record",
 })
 

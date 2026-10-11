@@ -100,11 +100,11 @@ def split_cpe_string(cpe_string: str) -> list[str]:
         if char == ":":
             parts.append(current)
             current = ""
-            i = i + 1
+            i += 1
             continue
 
         current = current + char
-        i = i + 1
+        i += 1
 
     parts.append(current)
     return parts
@@ -120,7 +120,7 @@ def remove_escaping(field: str) -> str:
             i = i + 2
         else:
             result = result + char
-            i = i + 1
+            i += 1
     return result
 
 
@@ -178,7 +178,6 @@ def parse_cpe(cpe_string: str) -> CpeComponents:
 
 # For CPE strings from the data, which are not always valid.
 try_parse_cpe = or_none(parse_cpe, CpeParseError)
-
 
 # Characters kept as-is in individual names, the others are percent-encoded.
 NAME_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789._-"

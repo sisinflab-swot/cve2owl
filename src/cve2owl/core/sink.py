@@ -6,7 +6,6 @@ from .log import logger as log
 from .naming import Namespace, prefix_map
 
 
-# The only writer to the output stream, so that every written byte and axiom is reported.
 class AxiomSink:
     def __init__(self, stream: cowl.StreamWriter) -> None:
         self.stream = stream
@@ -20,7 +19,6 @@ class AxiomSink:
         log.mark_axiom_written(self._write(axiom))
 
     def write_header(self, iri: str, namespaces: Iterable[Namespace]) -> None:
-        # Explicit prefixes, instead of the ontology's own, so all namespaces are abbreviated.
         header = cowl.Header(prefix_map=prefix_map(*namespaces), iri=iri)
         log.mark_written(self._write(header))
 
@@ -29,7 +27,6 @@ class AxiomSink:
             self.write(axiom)
 
     def write_extra(self, axioms: Iterable[cowl.Axiom]) -> int:
-        # For axioms outside any record: they still count towards the totals.
         count = 0
         written = 0
         for axiom in axioms:

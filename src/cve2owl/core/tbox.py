@@ -26,7 +26,6 @@ def new_ontology(ns: Namespace) -> cowl.Ontology:
     return onto
 
 
-# Translates JSON Schema definitions into the axioms of a new ontology in the given namespace.
 class SchemaTranslator:
     def __init__(
         self,

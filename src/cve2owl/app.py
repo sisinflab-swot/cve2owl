@@ -113,14 +113,14 @@ def process_cpe_dictionary(writer: CpeWriter, *, all_cpe: bool) -> None:
         cpe = parse_cpe(cpe_string)
         # Any version: a product family, not a product.
         if cpe.version == ANY:
-            families = families + 1
+            families += 1
             continue
         json_file = record_path(CPE_RECORDS_DIR, cpe)
         if json_file.exists():
             writer.process_record(json_file)
-            found = found + 1
+            found += 1
         else:
-            missing = missing + 1
+            missing += 1
     log.info(
         "  %d products found in the dictionary, %d missing, %d product families",
         found,

@@ -57,7 +57,6 @@ class CveLinker:
                     self._write_link(ind, link_name, cpe_ind)
                     self.cpe.describe(cpe_ind, cpe_string, cpe)
             elif key == CWE_KEY:
-                # Not "weakness": the target can also be a category or a view.
                 if isinstance(value, str) and value.startswith("CWE-"):
                     self._write_link(ind, CWE_LINK, self.cwe.individual(value))
 

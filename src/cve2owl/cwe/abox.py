@@ -17,16 +17,11 @@ DIRECTORIES = [
     ("views", "View"),
 ]
 
-# Direct parent links: OWL property chains cannot select ChildOf among the RelatedWeaknesses.
-CHILD_OF_LINK = "childOf"
-# Transitive super-property: reasoners can reach every ancestor, while childOf keeps direct parents.
-DESCENDANT_OF_LINK = "descendantOf"
-# Research Concepts, which covers every weakness; other views are distinct hierarchies.
+CHILD_OF_LINK = "childOf"  # Direct parent links
+DESCENDANT_OF_LINK = "descendantOf"  # Transitive super-property
 HIERARCHY_VIEW = "1000"
 
-# Links weaknesses to the CVE records MITRE cites as observed examples of them.
 OBSERVED_EXAMPLE_LINK = "observedExample"
-# A few references are bibliography entries ("[REF-1374]") or malformed IDs.
 CVE_ID_REGEX = re.compile(r"CVE-[0-9]{4}-[0-9]{4,19}")
 
 
