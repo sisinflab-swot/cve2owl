@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from pathlib import Path
 
 import cowl
@@ -5,6 +6,7 @@ import cowl
 from cve2owl.core.abox import JsonAboxMapper
 from cve2owl.core.jsonio import JSONObject, get_as, read_json_record
 from cve2owl.core.sink import AxiomSink
+from cve2owl.core.utils import unique
 
 from .tbox import CPE, CPE_NAME_CLASS
 from .uri import ANY, FIELD_NAMES, NA, CpeComponents, CpeParseError, parse_cpe
@@ -39,17 +41,7 @@ class CpeWriter:
 
     def _write_links(self, ind: cowl.Individual, key: str, entries: list[JSONObject]) -> None:
         link = CPE.object_property(key, raw=True)
-        # Some entries list the same CPE twice.
-        targets: dict[str, CpeComponents] = {}
-        for entry in entries:
-            if (cpe_string := get_as(entry, NAME_KEY, str)) is None:
-                continue
-            try:
-                cpe = parse_cpe(cpe_string)
-            except CpeParseError:
-                continue
-            targets.setdefault(cpe.individual_name, cpe)
-        for cpe in targets.values():
+        for cpe in unique(_parse_names(entries), key=lambda cpe: cpe.individual_name):
             self.sink.write(link(ind, self.individual(cpe)))
 
     def describe(
@@ -79,6 +71,16 @@ class CpeWriter:
                 continue
             literal = cowl.Literal(value)
             self.sink.write(CPE.data_property(field_name)(ind, literal))
+
+
+def _parse_names(entries: list[JSONObject]) -> Iterator[CpeComponents]:
+    for entry in entries:
+        if (cpe_string := get_as(entry, NAME_KEY, str)) is None:
+            continue
+        try:
+            yield parse_cpe(cpe_string)
+        except CpeParseError:
+            continue
 
 
 def extra_axioms() -> list[cowl.Axiom]:

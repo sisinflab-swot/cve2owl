@@ -6,6 +6,7 @@ import cowl
 from cve2owl.core.abox import IndividualMapper, JsonAboxMapper
 from cve2owl.core.jsonio import JSONObject, get_as, read_json_record
 from cve2owl.core.sink import AxiomSink
+from cve2owl.core.utils import unique
 
 from .tbox import CWE, REF_KEYS
 
@@ -65,9 +66,8 @@ class CweWriter:
     def _write_observed_examples(self, ind: cowl.NamedIndividual, data: JSONObject) -> None:
         observed_example = CWE.object_property(OBSERVED_EXAMPLE_LINK, raw=True)
         examples = get_as(data, "ObservedExamples", list[JSONObject]) or []
-        # Some weaknesses cite the same CVE twice.
-        references = dict.fromkeys(get_as(example, "Reference", str) for example in examples)
-        for reference in references:
+        references = (get_as(example, "Reference", str) for example in examples)
+        for reference in unique(references):
             if reference is not None and CVE_ID_REGEX.fullmatch(reference):
                 self.sink.write(observed_example(ind, self.cve_mapper(reference)))
 
