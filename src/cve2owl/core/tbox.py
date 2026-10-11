@@ -1,4 +1,4 @@
-from collections.abc import Callable, Mapping, Sequence, Set as AbstractSet
+from collections.abc import Callable, Iterator, Mapping, Sequence, Set as AbstractSet
 from typing import Any, cast, overload
 
 import cowl
@@ -224,9 +224,102 @@ def string_restriction(schema: JSONObject) -> ExpressionOrRange:
         return cowl.xsd.string.that_has(
             min_length=get_as(schema, "minLength", int),
             max_length=get_as(schema, "maxLength", int),
-            pattern=get_as(schema, "pattern", str),
+            pattern=xsd_pattern(pattern) if (pattern := get_as(schema, "pattern", str)) else None,
         )
     return cowl.xsd.string
+
+
+# Escapes valid in XML Schema regexes; other ECMAScript escapes of punctuation are literals.
+XSD_ESCAPES = frozenset("nrt\\|.?*+(){}-[]^sSiIcCdDwWpP")
+
+# A regex token, and whether it is an unescaped ^, $, (, ) or |.
+type RegexToken = tuple[str, bool]
+
+
+def xsd_pattern(pattern: str) -> str:
+    # JSON Schema patterns are ECMAScript regexes, which match anywhere in the string unless
+    # anchored. xsd:pattern is an XML Schema regex, which always matches the whole string, and where
+    # ^ and $ are plain characters. Anchors are per alternative: "^a|b$" is "starts with a or ends
+    # with b".
+    branches: list[list[RegexToken]] = [[]]
+    depth = 0
+    for text, special in _regex_tokens(pattern):
+        if special and text == "|" and depth == 0:
+            branches.append([])
+            continue
+        if special and text in "()":
+            depth += 1 if text == "(" else -1
+        branches[-1].append((text, special))
+    return "|".join(_xsd_branch(branch, pattern) for branch in branches)
+
+
+def _xsd_branch(tokens: list[RegexToken], pattern: str) -> str:
+    start = bool(tokens) and tokens[0] == ("^", True)
+    end = len(tokens) > start and tokens[-1] == ("$", True)
+    body = tokens[int(start) : len(tokens) - int(end)]
+    if any(special and text in "^$" for text, special in body):
+        msg = f"anchor inside a regex alternative: {pattern}"
+        raise ValueError(msg)
+    any_text = ".*"
+    return ("" if start else any_text) + "".join(t for t, _ in body) + ("" if end else any_text)
+
+
+def _regex_tokens(pattern: str) -> Iterator[RegexToken]:
+    i = 0
+    while i < len(pattern):
+        c = pattern[i]
+        if c == "\\":
+            yield _xsd_escape(pattern, i), False
+            i += 2
+        elif c == "[":
+            text, i = _xsd_class(pattern, i)
+            yield text, False
+        elif pattern.startswith("(?:", i):
+            # No non-capturing groups in XML Schema, and groups never capture anyway.
+            yield "(", True
+            i += 3
+        elif pattern.startswith("(?", i):
+            msg = f"unsupported regex group: {pattern}"
+            raise ValueError(msg)
+        else:
+            yield c, c in "^$()|"
+            i += 1
+
+
+def _xsd_class(pattern: str, i: int) -> tuple[str, int]:
+    # Returns the class starting at i, and the index after it. ^ and $ are not anchors in a class.
+    negated = pattern.startswith("[^", i)
+    i += 2 if negated else 1
+    atoms: list[str] = []
+    while (c := pattern[i]) != "]":
+        if c == "\\":
+            atoms.append(_xsd_escape(pattern, i))
+            i += 2
+        else:
+            atoms.append(c)
+            i += 1
+    chars: list[str] = []
+    k = 0
+    while k < len(atoms):
+        if k + 2 < len(atoms) and atoms[k + 1] == "-" and atoms[k] != "-":
+            chars.append(f"{atoms[k]}-{atoms[k + 2]}")
+            k += 3
+        else:
+            # A "-" outside a range, as in [0-9-.], is literal in ECMAScript but not in XML Schema.
+            # A [ must be escaped in XML Schema too.
+            chars.append({"-": "\\-", "[": "\\["}.get(atoms[k], atoms[k]))
+            k += 1
+    return "[" + ("^" if negated else "") + "".join(chars) + "]", i + 1
+
+
+def _xsd_escape(pattern: str, i: int) -> str:
+    c = pattern[i + 1]
+    if c in XSD_ESCAPES:
+        return "\\" + c
+    if c.isalnum():
+        msg = f"unsupported regex escape \\{c}: {pattern}"
+        raise ValueError(msg)
+    return c
 
 
 @overload
