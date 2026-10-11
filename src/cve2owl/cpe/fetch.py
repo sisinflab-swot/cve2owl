@@ -7,7 +7,7 @@ from cve2owl.core.jsonio import JSONValue
 from cve2owl.core.log import logger as log
 from cve2owl.data import CPE_FEED, CPE_RECORDS_DIR, CPE_SCHEMA
 
-from .uri import CpeComponents, CpeParseError, field_to_name, parse_cpe
+from .uri import CpeComponents, field_to_name, try_parse_cpe
 
 SCHEMA_URL = "https://csrc.nist.gov/schema/nvd/api/2.0/cpe_api_json_2.0.schema"
 FEED_URL = "https://nvd.nist.gov/feeds/json/cpe/2.0/nvdcpe-2.0.tar.gz"
@@ -39,11 +39,10 @@ def explode_page(page: JSONValue, records_dir: Path) -> tuple[int, int]:
             skipped = skipped + 1
             continue
 
-        try:
-            path = record_path(records_dir, parse_cpe(cpe_string))
-        except CpeParseError:
+        if (cpe := try_parse_cpe(cpe_string)) is None:
             skipped = skipped + 1
             continue
+        path = record_path(records_dir, cpe)
 
         if path.parent not in created_folders:
             path.parent.mkdir(parents=True, exist_ok=True)

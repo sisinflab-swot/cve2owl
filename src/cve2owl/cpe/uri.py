@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from functools import cached_property
 
+from cve2owl.core.utils import or_none
+
 ANY = "ANY"  # "*"
 NA = "NA"  # "-"
 
@@ -172,6 +174,10 @@ def parse_cpe(cpe_string: str) -> CpeComponents:
     if cpe_string.startswith("cpe:/"):
         return parse_cpe22(cpe_string)
     return parse_cpe23(cpe_string)
+
+
+# For CPE strings from the data, which are not always valid.
+try_parse_cpe = or_none(parse_cpe, CpeParseError)
 
 
 # Characters kept as-is in individual names, the others are percent-encoded.

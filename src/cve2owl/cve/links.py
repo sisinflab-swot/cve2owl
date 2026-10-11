@@ -3,7 +3,7 @@ import cowl
 from cve2owl.core.jsonio import JSONObject, JSONValue
 from cve2owl.core.sink import AxiomSink
 from cve2owl.cpe.abox import CpeWriter
-from cve2owl.cpe.uri import CpeParseError, parse_cpe
+from cve2owl.cpe.uri import try_parse_cpe
 from cve2owl.cwe.abox import CweWriter
 
 from .vocab import CVE
@@ -51,9 +51,7 @@ class CveLinker:
                 if obj.get("vulnerable") is False:
                     link_name = PLATFORM_LINK
                 for cpe_string in _cpe_strings(value):
-                    try:
-                        cpe = parse_cpe(cpe_string)
-                    except CpeParseError:
+                    if (cpe := try_parse_cpe(cpe_string)) is None:
                         continue
                     cpe_ind = self.cpe.individual(cpe)
                     self._write_link(ind, link_name, cpe_ind)
