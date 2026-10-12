@@ -28,7 +28,7 @@
    ```bash
    cve2owl fetch
    ```
-   This fetches the CVE records, the NVD CPE dictionary and the CWE catalogue, along with their schemas, into the `data` directory. The first download may take a while, depending on your connection and disk speed, as the CVE repository alone holds hundreds of thousands of files. To fetch only some datasets, name them, e.g. `cve2owl fetch cve cwe`. The schemas are always fetched, as every run needs all three TBoxes. Running the command again updates the existing data: the CVE repositories are synchronized, the CPE dictionary is downloaded and preprocessed again only if NVD published a newer one (`--force` does it anyway), and the CWE catalogue is downloaded again.
+   This fetches the CVE records, the NVD CPE dictionary and the CWE catalogue, along with their schemas, into the `data` directory, which can be changed via `--data-dir` (also accepted by `generate`). The first download may take a while, depending on your connection and disk speed, as the CVE repository alone holds hundreds of thousands of files. To fetch only some datasets, name them, e.g. `cve2owl fetch cve cwe`. The schemas are always fetched, as every run needs all three TBoxes. Running the command again updates the existing data: the CVE repositories are synchronized, the CPE dictionary is downloaded and preprocessed again only if NVD published a newer one (`--force` does it anyway), and the CWE catalogue is downloaded again.
 4. Generate the knowledge graph:
    ```bash
    cve2owl generate

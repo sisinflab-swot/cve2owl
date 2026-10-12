@@ -5,7 +5,7 @@ from pathlib import Path
 from cve2owl.core.fetch import download, get_json, replace_dir
 from cve2owl.core.jsonio import JSONValue
 from cve2owl.core.log import logger as log
-from cve2owl.data import CWE_CATALOGUE_DIR, CWE_SCHEMA
+from cve2owl.data import DataDir
 
 SCHEMA_URL = "https://raw.githubusercontent.com/CWE-CAPEC/REST-API-wg/main/openapi.json"
 API_URL = "https://cwe-api.mitre.org/api/v1/cwe"
@@ -21,12 +21,12 @@ class CweFetchError(Exception):
     pass
 
 
-def fetch_schema(*, force: bool = False) -> None:
-    download(SCHEMA_URL, CWE_SCHEMA, force=force)
+def fetch_schema(data: DataDir, *, force: bool = False) -> None:
+    download(SCHEMA_URL, data.cwe_schema, force=force)
 
 
-def fetch_catalogue() -> None:
-    replace_dir(CWE_CATALOGUE_DIR, _download_catalogue)
+def fetch_catalogue(data: DataDir) -> None:
+    replace_dir(data.cwe_catalogue_dir, _download_catalogue)
 
 
 def _download_catalogue(catalogue_dir: Path) -> None:

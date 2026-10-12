@@ -5,7 +5,7 @@ from pathlib import Path
 from cve2owl.core.fetch import download, replace_dir
 from cve2owl.core.jsonio import JSONValue
 from cve2owl.core.log import logger as log
-from cve2owl.data import CPE_FEED, CPE_RECORDS_DIR, CPE_SCHEMA
+from cve2owl.data import DataDir
 
 from .uri import CpeComponents, field_to_name, try_parse_cpe
 
@@ -79,18 +79,18 @@ def explode_archive(archive_path: Path, records_dir: Path) -> tuple[int, int]:
     return written, skipped
 
 
-def fetch_schema(*, force: bool = False) -> None:
-    download(SCHEMA_URL, CPE_SCHEMA, force=force)
+def fetch_schema(data: DataDir, *, force: bool = False) -> None:
+    download(SCHEMA_URL, data.cpe_schema, force=force)
 
 
-def fetch_dictionary(*, force: bool = False) -> None:
-    changed = download(FEED_URL, CPE_FEED, force=force)
-    if not changed and CPE_RECORDS_DIR.exists():
+def fetch_dictionary(data: DataDir, *, force: bool = False) -> None:
+    changed = download(FEED_URL, data.cpe_feed, force=force)
+    if not changed and data.cpe_records_dir.exists():
         return
 
     def build(records_dir: Path) -> None:
-        log.info("Splitting %s into one file per product...", CPE_FEED)
-        written, skipped = explode_archive(CPE_FEED, records_dir)
+        log.info("Splitting %s into one file per product...", data.cpe_feed)
+        written, skipped = explode_archive(data.cpe_feed, records_dir)
         log.info("  %d record files written (%d skipped)", written, skipped)
 
-    replace_dir(CPE_RECORDS_DIR, build)
+    replace_dir(data.cpe_records_dir, build)

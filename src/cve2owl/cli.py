@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from .app import CPE_MODES, DEFAULT_OUTPUT_DIR, MissingDataError, generate
-from .data import DATA_DIR
+from .data import DEFAULT_DATA_DIR, DataDir
 from .fetch import DATASETS, fetch
 
 
@@ -15,11 +15,21 @@ def parse_args() -> argparse.Namespace:
     )
     commands = parser.add_subparsers(dest="command", metavar="COMMAND")
 
+    data_parser = argparse.ArgumentParser(add_help=False)
+    data_parser.add_argument(
+        "--data-dir",
+        "-d",
+        type=Path,
+        default=DEFAULT_DATA_DIR,
+        help=f"Directory of the input data (default: {DEFAULT_DATA_DIR}).",
+    )
+
     fetch_parser = commands.add_parser(
         "fetch",
-        help=f"Download or update the input data under {DATA_DIR}.",
-        description=f"Download or update the input data under {DATA_DIR}. The CVE, CPE and "
-        "CWE schemas are always fetched, as every generate run needs them.",
+        parents=[data_parser],
+        help="Download or update the input data.",
+        description="Download or update the input data. The CVE, CPE and CWE schemas are "
+        "always fetched, as every generate run needs them.",
     )
     fetch_parser.add_argument(
         "datasets",
@@ -41,6 +51,7 @@ def parse_args() -> argparse.Namespace:
 
     generate_parser = commands.add_parser(
         "generate",
+        parents=[data_parser],
         help="Generate the OWL ontology from the fetched data.",
         description="Generate the OWL ontology from the fetched data.",
     )
@@ -94,11 +105,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    data = DataDir(args.data_dir)
     if args.command == "fetch":
-        fetch(args.datasets, cve_ref=args.cve_ref, force=args.force)
+        fetch(args.datasets, data=data, cve_ref=args.cve_ref, force=args.force)
         return
     try:
         generate(
+            data=data,
             ids=args.ids,
             from_date=args.from_date,
             to_date=args.to_date,
