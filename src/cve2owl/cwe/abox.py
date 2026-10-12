@@ -8,7 +8,7 @@ from cve2owl.core.jsonio import JSONObject, get_as, read_json_record
 from cve2owl.core.sink import AxiomSink
 from cve2owl.core.utils import not_none, unique
 
-from .tbox import CWE, REF_KEYS
+from .tbox import CWE, DATA_RENAMED_KEYS, REF_KEYS
 
 # Catalogue subfolder -> class of its entries
 DIRECTORIES = [
@@ -36,7 +36,7 @@ class CweWriter:
         self.sink = sink
         self.cve_mapper = cve_mapper
         key_mappers = dict.fromkeys(REF_KEYS, self.individual)
-        self.mapper = JsonAboxMapper(CWE, sink, key_mappers=key_mappers)
+        self.mapper = JsonAboxMapper(CWE, sink, key_mappers=key_mappers, rename=DATA_RENAMED_KEYS)
 
     def individual(self, cwe_id: str) -> cowl.NamedIndividual:
         return CWE.individual(cwe_individual_name(cwe_id))

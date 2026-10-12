@@ -18,14 +18,17 @@ IGNORE = frozenset({
     "Parents",
 })
 
-# Schema has "CWE_ID" and "View_ID", data has "CweID" and "ViewID".
-RENAMED_KEYS = {"CWE_ID": "CweID", "View_ID": "ViewID"}
+# Data keys holding the ID of a CWE entry -> name of the property linking to the entry itself.
+DATA_RENAMED_KEYS = {"CweID": "Cwe", "ViewID": "View"}
 
-# Keys holding the ID of a CWE entry -> classes of the entries it can refer to.
+# Schema also has "CWE_ID" and "View_ID", where the data has "CweID" and "ViewID".
+RENAMED_KEYS = {"CWE_ID": "Cwe", "View_ID": "View", **DATA_RENAMED_KEYS}
+
+# Keys of the properties linking to CWE entries -> classes of the entries they can refer to.
 # Their values are mapped to the entry individuals instead of literals.
 REF_KEYS = {
-    "CweID": ["Weakness", "Category", "View"],
-    "ViewID": ["View"],
+    "Cwe": ["Weakness", "Category", "View"],
+    "View": ["View"],
 }
 
 

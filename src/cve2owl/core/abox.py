@@ -29,12 +29,14 @@ class JsonAboxMapper:
         sink: AxiomSink,
         *,
         key_mappers: Mapping[str, IndividualMapper] | None = None,
+        rename: Mapping[str, str] | None = None,
         ignore: AbstractSet[str] = frozenset(),
         on_object: ObjectHook | None = None,
     ) -> None:
         self.ns = ns
         self.sink = sink
         self.key_mappers = key_mappers or {}
+        self.rename = rename or {}
         self.ignore = ignore
         self.on_object = on_object
 
@@ -54,11 +56,12 @@ class JsonAboxMapper:
         for key, value in obj.items():
             if key in exclude or key in self.ignore:
                 continue
-            if (mapper := self.key_mappers.get(key)) and isinstance(value, str):
-                self.assert_value(ind, key, mapper(value))
+            prop = self.rename.get(key, key)
+            if (mapper := self.key_mappers.get(prop)) and isinstance(value, str):
+                self.assert_value(ind, prop, mapper(value))
             else:
-                for v in self.values(value, f"{name}_{_key_name(key)}"):
-                    self.assert_value(ind, key, v)
+                for v in self.values(value, f"{name}_{_key_name(prop)}"):
+                    self.assert_value(ind, prop, v)
         if self.on_object:
             self.on_object(obj, ind)
 
