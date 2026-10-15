@@ -70,6 +70,7 @@ The `fetch` command downloads or updates the input data; `generate` builds the k
 | `generate` | `--to-date DATE` | Only process the CVE records published on this date or before it. Same formats as `--from-date`. |
 | `generate` | `--cpe {none,referenced,all}` | Products to read from the CPE dictionary: those referenced by the processed CVE records (`referenced`, the default), the whole dictionary (`all`, about 1.7 million products, at the cost of a much larger output), or none (`none`). CPE individuals are described by their components in any case. |
 | `generate` | `--no-cwe` | Do not read the CWE catalogue, leaving the CWE individuals linked from the CVE records bare. |
+| `generate` | `--tbox-only` | Only write the TBoxes and the enrichment axioms, reading no data (only the schemas need to be fetched). The options selecting the data are ignored. |
 | `generate` | `-o`, `--output-dir DIR` | Directory where the ontology and metrics are written (default: `output`). |
 
 #### Examples

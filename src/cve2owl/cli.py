@@ -89,6 +89,12 @@ def parse_args() -> argparse.Namespace:
         "records stay bare.",
     )
     generate_parser.add_argument(
+        "--tbox-only",
+        action="store_true",
+        help="Only write the TBoxes and the enrichment axioms, reading no data: "
+        "the options selecting the data are ignored.",
+    )
+    generate_parser.add_argument(
         "--output-dir",
         "-o",
         type=Path,
@@ -117,6 +123,7 @@ def main() -> None:
             to_date=args.to_date,
             cpe=args.cpe,
             cwe=args.cwe,
+            tbox_only=args.tbox_only,
             output_dir=args.output_dir,
         )
     except MissingDataError as e:

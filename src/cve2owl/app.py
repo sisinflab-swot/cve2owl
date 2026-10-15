@@ -29,14 +29,15 @@ class MissingDataError(Exception):
     pass
 
 
-def check_data(data: DataDir, *, cpe: str, cwe: bool) -> None:
+def check_data(data: DataDir, *, cve: bool, cpe: str, cwe: bool) -> None:
     # Path -> arguments of the fetch command that creates it.
     required = [
         (data.cve_schema, ""),
         (data.cpe_schema, ""),
         (data.cwe_schema, ""),
-        (data.cve_records_dir, " cve"),
     ]
+    if cve:
+        required.append((data.cve_records_dir, " cve"))
     if cpe != "none":
         required.append((data.cpe_records_dir, " cpe"))
     if cwe:
@@ -121,6 +122,30 @@ def process_cpe_dictionary(data: DataDir, writer: CpeWriter, *, all_cpe: bool) -
     log.info("CPE products: %d found, %d missing, %d families", found, missing, families)
 
 
+def write_abox(
+    data: DataDir,
+    sink: AxiomSink,
+    ids: list[str] | None,
+    from_date: str | None,
+    to_date: str | None,
+    *,
+    cpe: str,
+    cwe: bool,
+) -> None:
+    cpe_writer = CpeWriter(sink)
+    cwe_writer = CweWriter(sink, cve_mapper=CVE.individual)
+
+    if cwe:
+        process_cwe_catalog(data, cwe_writer)
+
+    linker = CveLinker(sink, cpe_writer, cwe_writer)
+    cve_writer = CveWriter(sink, on_object=linker)
+    process_cve_records(data, cve_writer, ids, from_date, to_date)
+
+    if cpe != "none":
+        process_cpe_dictionary(data, cpe_writer, all_cpe=cpe == "all")
+
+
 def generate(
     *,
     data: DataDir,
@@ -129,9 +154,13 @@ def generate(
     to_date: str | None = None,
     cpe: str = "referenced",
     cwe: bool = True,
+    tbox_only: bool = False,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
 ) -> None:
-    check_data(data, cpe=cpe, cwe=cwe)
+    if tbox_only:
+        check_data(data, cve=False, cpe="none", cwe=False)
+    else:
+        check_data(data, cve=True, cpe=cpe, cwe=cwe)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     stem = f"cve2owl_{datetime.now(tz=UTC).strftime('%Y%m%d_%H%M%S')}"
@@ -144,19 +173,8 @@ def generate(
         sink = AxiomSink(stream)
         write_tboxes(data, sink)
         write_extras(sink)
-
-        cpe_writer = CpeWriter(sink)
-        cwe_writer = CweWriter(sink, cve_mapper=CVE.individual)
-
-        if cwe:
-            process_cwe_catalog(data, cwe_writer)
-
-        linker = CveLinker(sink, cpe_writer, cwe_writer)
-        cve_writer = CveWriter(sink, on_object=linker)
-        process_cve_records(data, cve_writer, ids, from_date, to_date)
-
-        if cpe != "none":
-            process_cpe_dictionary(data, cpe_writer, all_cpe=cpe == "all")
+        if not tbox_only:
+            write_abox(data, sink, ids, from_date, to_date, cpe=cpe, cwe=cwe)
 
     log.close()
     log.info("Ontology written to %s", output_path)
