@@ -35,7 +35,6 @@ Individual names are derived deterministically from the identifiers (e.g. `cve:C
    ```bash
    git clone https://github.com/sisinflab-swot/cve2owl
    ```
-   **Note for peer reviewers:** if you're viewing the anonymized repository, you must download the sources by clicking on *ZIP* in the top-right corner of the web interface.
 2. Install the project and its dependencies:
    ```bash
    cd cve2owl
@@ -76,6 +75,9 @@ The `fetch` command downloads or updates the input data; `generate` builds the k
 #### Examples
 
 ```bash
+# Fetch or update all the input data (CVE records, CPE dictionary, CWE catalogue and their schemas)
+cve2owl fetch
+
 # Update only the CVE records, leaving the CPE dictionary and the CWE catalogue untouched
 cve2owl fetch cve
 
@@ -85,14 +87,23 @@ cve2owl fetch cwe
 # Refresh only the CPE dictionary, even if NVD has not published a newer one
 cve2owl fetch cpe --force
 
+# Fetch the CVE records of a specific cvelistV5 tag, for reproducibility
+cve2owl fetch cve --cve-ref <tag>
+
 # Fetch everything into a custom directory
 cve2owl fetch -d /path/to/data
+
+# Generate the knowledge graph for the whole dataset, with the CPE products the records reference
+cve2owl generate
 
 # Generate the knowledge graph for the records published in the first half of 2024
 cve2owl generate --from-date 2024-01 --to-date 2024-06
 
 # Generate the knowledge graph for the CVE-2025-1xxx records only, without CPE and CWE data
 cve2owl generate --ids 'CVE-2025-1???' --cpe none --no-cwe
+
+# Generate only the TBoxes and the enrichment axioms
+cve2owl generate --tbox-only
 
 # Generate the knowledge graph for the whole dataset, including the whole CPE dictionary
 cve2owl generate --cpe all -d /path/to/data -o /path/to/output
